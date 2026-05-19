@@ -1127,6 +1127,7 @@ export class OpenClawConfigSync {
     }
 
     let allProvidersMap: Record<string, OpenClawProviderSelection['providerConfig']> = {};
+    const perModelCustomParams: Record<string, { params: Record<string, unknown> }> = {};
     let primaryModel = '';
     let providerSelection: OpenClawProviderSelection | null = null;
 
@@ -1177,6 +1178,11 @@ export class OpenClawConfigSync {
           const alreadyHas = existing.models.some(em => em.id === sel.providerConfig.models[0]?.id);
           if (!alreadyHas && sel.providerConfig.models.length > 0) {
             existing.models.push(...sel.providerConfig.models);
+          }
+          // Collect per-model custom params for agents.defaults.models
+          if (m.customParams && Object.keys(m.customParams).length > 0) {
+            const modelKey = `${sel.providerId}/${sel.sessionModelId}`;
+            perModelCustomParams[modelKey] = { params: { ...m.customParams } };
           }
         }
       }
@@ -1387,6 +1393,9 @@ export class OpenClawConfigSync {
             lightContext: true,
             isolatedSession: true,
           },
+          ...(Object.keys(perModelCustomParams).length > 0
+            ? { models: perModelCustomParams }
+            : {}),
         },
         ...this.buildAgentsList(primaryModel, this.engineManager.getStateDir(), availableProviders, agents),
       },

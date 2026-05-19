@@ -34,6 +34,7 @@ type ProviderModelConfig = {
   name: string;
   supportsImage?: boolean;
   contextWindow?: number;
+  customParams?: Record<string, unknown>;
 };
 
 type ProviderModelInputConfig = {
@@ -41,6 +42,7 @@ type ProviderModelInputConfig = {
   name?: string;
   supportsImage?: boolean;
   contextWindow?: number;
+  customParams?: Record<string, unknown>;
 };
 
 export type ApiConfigResolution = {
