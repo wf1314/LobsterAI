@@ -9,6 +9,7 @@ import {
   BrowserNetworkMode,
   BrowserRuntimeProfile,
   type BrowserWebAccessConfig,
+  normalizeBrowserHostnamePolicyList,
   normalizeBrowserWebAccessConfig,
 } from '../../shared/browserWebAccess/constants';
 import {
@@ -1118,7 +1119,7 @@ export class OpenClawConfigSync {
   }
 
   private buildBrowserConfig(browserWebAccess: BrowserWebAccessConfig): Record<string, unknown> {
-    const allowedHostnames = browserWebAccess.allowedHostnames;
+    const allowedHostnames = normalizeBrowserHostnamePolicyList(browserWebAccess.allowedHostnames);
     const ssrfPolicy = browserWebAccess.networkMode === BrowserNetworkMode.Strict
       ? {
           dangerouslyAllowPrivateNetwork: false,

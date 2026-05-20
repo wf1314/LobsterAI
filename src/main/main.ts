@@ -2979,19 +2979,13 @@ if (!gotTheLock) {
   );
 
   ipcMain.handle(BrowserIpc.GetStatus, async (_event, options?: { profile?: BrowserRuntimeProfile }) => {
-    const requestedProfile = options?.profile ?? 'default';
-    console.log(`[BrowserDiagnostics] renderer requested browser status for profile "${requestedProfile}"`);
     try {
       const status = await fetchBrowserControlJson<Record<string, unknown>>(
         `/${buildBrowserProfileQuery(options?.profile)}`,
         { timeoutMs: 3000 },
       );
-      console.log(
-        `[BrowserDiagnostics] renderer browser status resolved for profile "${requestedProfile}": profile=${String(status.profile ?? 'unknown')} driver=${String(status.driver ?? 'unknown')} transport=${String(status.transport ?? 'unknown')} running=${String(status.running ?? 'unknown')}`,
-      );
       return { success: true, status };
     } catch (error) {
-      console.warn(`[BrowserDiagnostics] renderer browser status failed for profile "${requestedProfile}":`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get browser status',
@@ -3000,23 +2994,13 @@ if (!gotTheLock) {
   });
 
   ipcMain.handle(BrowserIpc.ListProfiles, async () => {
-    console.log('[BrowserDiagnostics] renderer requested browser profiles');
     try {
       const result = await fetchBrowserControlJson<{ profiles?: unknown[] }>(
         '/profiles',
         { timeoutMs: 5000 },
       );
-      const profiles = Array.isArray(result.profiles)
-        ? result.profiles.map((profile) => {
-          if (!profile || typeof profile !== 'object') return 'unknown';
-          const item = profile as Record<string, unknown>;
-          return `${String(item.name ?? 'unknown')}:${String(item.driver ?? 'unknown')}:${String(item.transport ?? 'unknown')}`;
-        }).join(',')
-        : 'unknown';
-      console.log(`[BrowserDiagnostics] renderer browser profiles resolved: ${profiles}`);
       return { success: true, profiles: result.profiles ?? [] };
     } catch (error) {
-      console.warn('[BrowserDiagnostics] renderer browser profiles failed:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to list browser profiles',

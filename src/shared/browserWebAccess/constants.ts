@@ -140,13 +140,144 @@ export const normalizeBrowserStringList = (value: unknown): string[] => {
   ));
 };
 
-const stripHostnameDecorations = (value: string): string => {
-  const withoutProtocol = value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
-  const withoutPath = withoutProtocol.split(/[/?#]/, 1)[0] ?? '';
-  if (withoutPath.startsWith('[')) {
-    return withoutPath.replace(/^\[/, '').replace(/\].*$/, '');
+const BrowserUrlProtocol = {
+  Http: 'http:',
+  Https: 'https:',
+  Ws: 'ws:',
+  Wss: 'wss:',
+} as const;
+
+type BrowserUrlProtocol = typeof BrowserUrlProtocol[keyof typeof BrowserUrlProtocol];
+
+const BrowserAccessRootDomainSuffixes = new Set([
+  'ai',
+  'app',
+  'biz',
+  'cc',
+  'cn',
+  'co',
+  'com',
+  'dev',
+  'edu',
+  'gov',
+  'info',
+  'io',
+  'me',
+  'net',
+  'org',
+  'tv',
+]);
+
+const BrowserAccessCompoundDomainSuffixes = new Set([
+  'co.uk',
+  'com.au',
+  'com.cn',
+  'com.hk',
+  'com.tw',
+  'net.cn',
+  'org.cn',
+]);
+
+const BrowserAccessUrlSchemePattern = /^([a-z][a-z0-9+.-]*):\/\//i;
+const BrowserIpv4HostnamePattern = /^\d{1,3}(?:\.\d{1,3}){3}$/;
+
+const resolveBrowserAccessProtocol = (value: string): BrowserUrlProtocol => {
+  const match = value.trim().match(BrowserAccessUrlSchemePattern);
+  if (!match) {
+    return BrowserUrlProtocol.Https;
   }
-  return withoutPath.replace(/:\d+$/, '');
+
+  const protocol = `${match[1].toLowerCase()}:`;
+  return protocol === BrowserUrlProtocol.Http || protocol === BrowserUrlProtocol.Https
+    ? protocol
+    : BrowserUrlProtocol.Https;
+};
+
+const parseBrowserHostnameEntry = (value: string): { hostname: string; port?: string } | null => {
+  const withoutProtocol = value.trim().replace(BrowserAccessUrlSchemePattern, '');
+  const withoutAuth = withoutProtocol.includes('@')
+    ? withoutProtocol.slice(withoutProtocol.lastIndexOf('@') + 1)
+    : withoutProtocol;
+  const hostWithPort = (withoutAuth.split(/[/?#]/, 1)[0] ?? '').trim().toLowerCase();
+  if (!hostWithPort) {
+    return null;
+  }
+
+  if (hostWithPort.startsWith('[')) {
+    const ipv6Match = hostWithPort.match(/^\[([^\]]+)\](?::(\d+))?$/);
+    if (!ipv6Match) {
+      return null;
+    }
+    return { hostname: ipv6Match[1], port: ipv6Match[2] };
+  }
+
+  if ((hostWithPort.match(/:/g) ?? []).length > 1) {
+    return { hostname: hostWithPort };
+  }
+
+  const hostPortMatch = hostWithPort.match(/^(.+?)(?::(\d+))?$/);
+  const hostname = hostPortMatch?.[1]?.replace(/\.+$/, '') ?? '';
+  if (!hostname || /\s/.test(hostname)) {
+    return null;
+  }
+
+  return { hostname, port: hostPortMatch?.[2] };
+};
+
+const shouldAddBrowserWwwPrefix = (hostname: string): boolean => {
+  if (
+    hostname === 'localhost'
+    || hostname.endsWith('.localhost')
+    || hostname.endsWith('.local')
+    || hostname.startsWith('*.')
+    || hostname.startsWith('www.')
+    || hostname.includes(':')
+    || BrowserIpv4HostnamePattern.test(hostname)
+  ) {
+    return false;
+  }
+
+  const labels = hostname.split('.').filter(Boolean);
+  if (labels.length === 2) {
+    return BrowserAccessRootDomainSuffixes.has(labels[1]);
+  }
+
+  if (labels.length === 3) {
+    return BrowserAccessCompoundDomainSuffixes.has(`${labels[1]}.${labels[2]}`);
+  }
+
+  return false;
+};
+
+const normalizeBrowserAccessHostname = (hostname: string): string => {
+  const normalized = hostname.toLowerCase().replace(/\.+$/, '');
+  if (!normalized) {
+    return '';
+  }
+  return shouldAddBrowserWwwPrefix(normalized) ? `www.${normalized}` : normalized;
+};
+
+const formatBrowserUrlHostname = (hostname: string): string => (
+  hostname.includes(':') && !hostname.startsWith('*.') ? `[${hostname}]` : hostname
+);
+
+const normalizeBrowserAccessUrl = (value: string): string => {
+  const parsed = parseBrowserHostnameEntry(value);
+  if (!parsed) {
+    return '';
+  }
+
+  const hostname = normalizeBrowserAccessHostname(parsed.hostname);
+  if (!hostname) {
+    return '';
+  }
+
+  if (hostname.startsWith('*.')) {
+    return hostname;
+  }
+
+  const port = parsed.port ? `:${parsed.port}` : '';
+  return `${resolveBrowserAccessProtocol(value)}//${formatBrowserUrlHostname(hostname)}${port}`;
 };
 
 export const normalizeBrowserHostnameList = (value: unknown): string[] => {
@@ -156,7 +287,19 @@ export const normalizeBrowserHostnameList = (value: unknown): string[] => {
   return Array.from(new Set(
     value
       .filter((item): item is string => typeof item === 'string')
-      .map(item => stripHostnameDecorations(item.trim()).toLowerCase())
+      .map(item => normalizeBrowserAccessUrl(item))
+      .filter(Boolean),
+  ));
+};
+
+export const normalizeBrowserHostnamePolicyList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return Array.from(new Set(
+    value
+      .filter((item): item is string => typeof item === 'string')
+      .map(item => parseBrowserHostnameEntry(item)?.hostname.toLowerCase().replace(/\.+$/, '') ?? '')
       .filter(Boolean),
   ));
 };
@@ -168,7 +311,12 @@ export const normalizeBrowserCdpUrl = (value: unknown): string | undefined => {
   }
   try {
     const parsed = new URL(normalized);
-    return ['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol) ? normalized : undefined;
+    return [
+      BrowserUrlProtocol.Http,
+      BrowserUrlProtocol.Https,
+      BrowserUrlProtocol.Ws,
+      BrowserUrlProtocol.Wss,
+    ].includes(parsed.protocol as BrowserUrlProtocol) ? normalized : undefined;
   } catch {
     return undefined;
   }
