@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
 
 import { i18nService } from '../../services/i18n';
-import { formatMessageDateTime } from '../../utils/tokenFormat';
 import type { CoworkMessage, CoworkMessageMetadata } from '../../types/cowork';
+import { formatMessageDateTime } from '../../utils/tokenFormat';
 import MessageCopyIcon from '../icons/MessageCopyIcon';
 import MarkdownContent from '../MarkdownContent';
 import ImagePreviewModal, { type ImagePreviewSource } from './ImagePreviewModal';

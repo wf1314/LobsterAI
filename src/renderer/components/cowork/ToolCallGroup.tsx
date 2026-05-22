@@ -13,11 +13,11 @@ import {
   isBashLikeToolName,
   isCronToolName,
   isTodoWriteToolName,
-  parseTodoWriteItems,
-  truncatePreview,
   type ParsedTodoItem,
+  parseTodoWriteItems,
   type TodoStatus,
   type ToolGroupItem,
+  truncatePreview,
 } from './messageDisplayUtils';
 
 // ── TodoWriteInputView ───────────────────────────────────────────────────────

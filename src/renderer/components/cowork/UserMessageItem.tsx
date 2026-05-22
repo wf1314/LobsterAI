@@ -2,10 +2,10 @@ import { PhotoIcon } from '@heroicons/react/24/outline';
 import React, { useCallback, useMemo, useState } from 'react';
 
 import { i18nService } from '../../services/i18n';
-import { formatMessageDateTime } from '../../utils/tokenFormat';
-import { parseUserMessageForDisplay } from '../../utils/userMessageDisplay';
 import type { CoworkImageAttachment, CoworkMessage, CoworkMessageMetadata } from '../../types/cowork';
 import type { Skill } from '../../types/skill';
+import { formatMessageDateTime } from '../../utils/tokenFormat';
+import { parseUserMessageForDisplay } from '../../utils/userMessageDisplay';
 import EditIcon from '../icons/EditIcon';
 import MessageCopyIcon from '../icons/MessageCopyIcon';
 import SkillIcon from '../icons/SkillIcon';

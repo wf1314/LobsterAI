@@ -10,6 +10,7 @@ import ExclamationTriangleIcon from '../icons/ExclamationTriangleIcon';
 import InformationCircleIcon from '../icons/InformationCircleIcon';
 import AssistantMessageItem from './AssistantMessageItem';
 import {
+  type ConversationTurn,
   COWORK_DETAIL_CONTENT_CLASS,
   COWORK_DETAIL_GUTTER_CLASS,
   getContextCompactionMessageLabel,
@@ -18,7 +19,6 @@ import {
   getVisibleAssistantItems,
   hasText,
   isContextCompactionMessage,
-  type ConversationTurn,
 } from './messageDisplayUtils';
 import ThinkingBlock from './ThinkingBlock';
 import ToolCallGroup from './ToolCallGroup';
