@@ -331,3 +331,82 @@ test('pending media status updates are applied when the tool use arrives', () =>
     pollCount: 7,
   });
 });
+
+test('inactive media status updates are applied when returning to the session', () => {
+  const baseState = coworkReducer(undefined, setCurrentSession(makeSession({
+    id: 'session-2',
+    title: 'Other Session',
+  })));
+
+  const pendingState = coworkReducer(baseState, updateToolUseMediaStatus({
+    sessionId: 'session-1',
+    toolCallId: 'call-1',
+    details: { taskId: 'task-1', pollCount: 9 },
+  }));
+
+  const state = coworkReducer(pendingState, setCurrentSession(makeSession({
+    messages: [{
+      id: 'tool-1',
+      type: 'tool_use',
+      content: 'Using tool: lobsterai_video_generate',
+      timestamp: 2,
+      metadata: {
+        toolName: 'lobsterai_video_generate',
+        toolUseId: 'call-1',
+        toolInput: { action: 'status', taskId: 'task-1' },
+      },
+    }],
+    totalMessages: 1,
+  })));
+
+  expect(state.currentSession?.messages[0].metadata?.mediaStatusDetails).toMatchObject({
+    taskId: 'task-1',
+    pollCount: 9,
+  });
+});
+
+test('retained media poll counts survive switching away and back', () => {
+  const activeState = coworkReducer(undefined, setCurrentSession(makeSession({
+    messages: [{
+      id: 'tool-1',
+      type: 'tool_use',
+      content: 'Using tool: lobsterai_video_generate',
+      timestamp: 1,
+      metadata: {
+        toolName: 'lobsterai_video_generate',
+        toolUseId: 'call-1',
+        toolInput: { action: 'status', taskId: 'task-1' },
+      },
+    }],
+    totalMessages: 1,
+  })));
+
+  const countedState = coworkReducer(activeState, updateToolUseMediaStatus({
+    sessionId: 'session-1',
+    toolCallId: 'call-1',
+    details: { taskId: 'task-1', pollCount: 12 },
+  }));
+  const otherSessionState = coworkReducer(countedState, setCurrentSession(makeSession({
+    id: 'session-2',
+    title: 'Other Session',
+  })));
+  const returnedState = coworkReducer(otherSessionState, setCurrentSession(makeSession({
+    messages: [{
+      id: 'tool-1-reloaded',
+      type: 'tool_use',
+      content: 'Using tool: lobsterai_video_generate',
+      timestamp: 3,
+      metadata: {
+        toolName: 'lobsterai_video_generate',
+        toolUseId: 'call-1',
+        toolInput: { action: 'status', taskId: 'task-1' },
+      },
+    }],
+    totalMessages: 1,
+  })));
+
+  expect(returnedState.currentSession?.messages[0].metadata?.mediaStatusDetails).toMatchObject({
+    taskId: 'task-1',
+    pollCount: 12,
+  });
+});

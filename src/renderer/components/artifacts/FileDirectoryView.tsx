@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
+import { dedupeArtifactsForDisplay } from '@/services/artifactParser';
 import { i18nService } from '@/services/i18n';
 import type { Artifact, ArtifactType } from '@/types/artifact';
 
@@ -59,7 +60,7 @@ const FileDirectoryView: React.FC<FileDirectoryViewProps> = ({ artifacts, select
   const [search, setSearch] = useState('');
 
   const sortedAndFiltered = useMemo(() => {
-    let items = artifacts;
+    let items = dedupeArtifactsForDisplay(artifacts);
 
     if (search.trim()) {
       const keyword = search.trim().toLowerCase();

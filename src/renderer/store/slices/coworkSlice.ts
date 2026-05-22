@@ -141,6 +141,51 @@ const mergeMediaDetails = (
   return merged;
 };
 
+const getMediaDetailTaskIds = (details: Record<string, unknown>): Set<string> => new Set(
+  [details.taskId, details.upstreamTaskId]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map(value => value.trim()),
+);
+
+const isSameRetainedMediaStatusUpdate = (
+  existing: { toolCallId: string; details: Record<string, unknown> },
+  toolCallId: string,
+  details: Record<string, unknown>,
+): boolean => {
+  if (existing.toolCallId === toolCallId) return true;
+
+  const existingTaskIds = getMediaDetailTaskIds(existing.details);
+  if (existingTaskIds.size === 0) return false;
+
+  for (const taskId of getMediaDetailTaskIds(details)) {
+    if (existingTaskIds.has(taskId)) return true;
+  }
+  return false;
+};
+
+const retainMediaStatusUpdate = (
+  state: CoworkState,
+  sessionId: string,
+  toolCallId: string,
+  details: Record<string, unknown>,
+): Record<string, unknown> => {
+  const pending = state.pendingMediaStatusUpdates[sessionId] ?? [];
+  const existingIndex = pending.findIndex(update => (
+    isSameRetainedMediaStatusUpdate(update, toolCallId, details)
+  ));
+
+  if (existingIndex >= 0) {
+    const mergedDetails = mergeMediaDetails(pending[existingIndex].details, details);
+    pending[existingIndex] = { toolCallId, details: mergedDetails };
+    state.pendingMediaStatusUpdates[sessionId] = pending;
+    return mergedDetails;
+  }
+
+  pending.push({ toolCallId, details: mergeMediaDetails(undefined, details) });
+  state.pendingMediaStatusUpdates[sessionId] = pending;
+  return pending[pending.length - 1].details;
+};
+
 const isMediaStatusToolUseMessage = (
   message: CoworkMessage,
   toolCallId: string,
@@ -188,16 +233,12 @@ const applyPendingMediaStatusUpdates = (
   if (!pending || pending.length === 0) return false;
 
   let applied = false;
-  state.pendingMediaStatusUpdates[sessionId] = pending.filter((update) => {
+  for (const update of pending) {
     if (!isMediaStatusToolUseMessage(message, update.toolCallId, update.details)) {
-      return true;
+      continue;
     }
     mergeMediaStatusDetailsIntoMessage(message, update.details);
     applied = true;
-    return false;
-  });
-  if (state.pendingMediaStatusUpdates[sessionId].length === 0) {
-    delete state.pendingMediaStatusUpdates[sessionId];
   }
   return applied;
 };
@@ -255,6 +296,9 @@ const coworkSlice = createSlice({
           messagesOffset: session.messagesOffset ?? 0,
           totalMessages: session.totalMessages ?? session.messages.length,
         };
+        for (const message of state.currentSession.messages) {
+          applyPendingMediaStatusUpdates(state, session.id, message);
+        }
       } else {
         state.currentSession = null;
       }
@@ -396,24 +440,15 @@ const coworkSlice = createSlice({
     updateToolUseMediaStatus(state, action: PayloadAction<{ sessionId: string; toolCallId: string; details: Record<string, unknown> }>) {
       const { sessionId, toolCallId, details } = action.payload;
       const updatedAt = Date.now();
+      const retainedDetails = retainMediaStatusUpdate(state, sessionId, toolCallId, details);
 
       if (state.currentSession?.id === sessionId) {
         const message = state.currentSession.messages.find(item => (
-          isMediaStatusToolUseMessage(item, toolCallId, details)
+          isMediaStatusToolUseMessage(item, toolCallId, retainedDetails)
         ));
         if (message) {
-          mergeMediaStatusDetailsIntoMessage(message, details);
+          mergeMediaStatusDetailsIntoMessage(message, retainedDetails);
           state.currentSession.updatedAt = updatedAt;
-        } else {
-          const pending = state.pendingMediaStatusUpdates[sessionId] ?? [];
-          const nextUpdate = { toolCallId, details };
-          const existingIndex = pending.findIndex(update => update.toolCallId === toolCallId);
-          if (existingIndex >= 0) {
-            pending[existingIndex] = nextUpdate;
-          } else {
-            pending.push(nextUpdate);
-          }
-          state.pendingMediaStatusUpdates[sessionId] = pending;
         }
       }
 

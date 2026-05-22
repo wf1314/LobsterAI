@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-import { normalizeFilePathForDedup } from '../../services/artifactParser';
+import { dedupeArtifactsForDisplay, normalizeFilePathForDedup } from '../../services/artifactParser';
 import type { Artifact } from '../../types/artifact';
 import type { RootState } from '../index';
 
@@ -116,8 +116,9 @@ const artifactSlice = createSlice({
   initialState,
   reducers: {
     setSessionArtifacts(state, action: PayloadAction<{ sessionId: string; artifacts: Artifact[] }>) {
-      state.artifactsBySession[action.payload.sessionId] = action.payload.artifacts;
-      const knownIds = new Set(action.payload.artifacts.map(artifact => artifact.id));
+      const artifacts = dedupeArtifactsForDisplay(action.payload.artifacts);
+      state.artifactsBySession[action.payload.sessionId] = artifacts;
+      const knownIds = new Set(artifacts.map(artifact => artifact.id));
       const tabs = state.previewTabsBySession[action.payload.sessionId] ?? [];
       state.previewTabsBySession[action.payload.sessionId] = tabs.filter(tab => knownIds.has(tab.artifactId));
       const activeTabId = state.activePreviewTabIdBySession[action.payload.sessionId];
@@ -278,7 +279,7 @@ export const {
 } = artifactSlice.actions;
 
 export const selectSessionArtifacts = (state: RootState, sessionId: string): Artifact[] =>
-  state.artifact.artifactsBySession[sessionId] ?? [];
+  dedupeArtifactsForDisplay(state.artifact.artifactsBySession[sessionId] ?? []);
 
 export const selectSelectedArtifact = (state: RootState): Artifact | null => {
   const id = state.artifact.selectedArtifactId;
