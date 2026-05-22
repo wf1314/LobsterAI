@@ -320,12 +320,14 @@ export class SubagentTracker {
                 messages.push({ role: 'tool', content: `[Calling ${toolName}]` });
               }
             }
+          } else if (!text) {
+            console.log('[SubagentTracker] dropped message with empty text, role:', role, 'keys:', Object.keys(raw).join(','), 'content-type:', typeof raw.content, Array.isArray(raw.content) ? `array[${(raw.content as unknown[]).length}]` : '');
           }
           continue;
         }
 
         // Handle tool result messages
-        if (role === 'tool_result' || role === 'tool' || role === 'function') {
+        if (role === 'tool_result' || role === 'toolresult' || role === 'tool' || role === 'function') {
           const text = extractGatewayMessageText(raw).trim();
           const toolName = typeof raw.toolName === 'string' ? raw.toolName
             : typeof raw.tool_name === 'string' ? raw.tool_name
@@ -333,6 +335,8 @@ export class SubagentTracker {
           if (text) {
             const prefix = toolName ? `[${toolName}] ` : '';
             messages.push({ role: 'tool', content: `${prefix}${text}` });
+          } else {
+            console.log('[SubagentTracker] dropped tool result with empty text, role:', role, 'keys:', Object.keys(raw).join(','), 'content-type:', typeof raw.content, Array.isArray(raw.content) ? `array[${(raw.content as unknown[]).length}]` : '', 'content-sample:', JSON.stringify(raw.content)?.slice(0, 200));
           }
           continue;
         }
@@ -351,6 +355,9 @@ export class SubagentTracker {
           }
           continue;
         }
+
+        // Log completely unhandled messages
+        console.log('[SubagentTracker] unhandled message, role:', role || '(empty)', 'keys:', Object.keys(raw).join(','));
       }
 
       // Cache locally
