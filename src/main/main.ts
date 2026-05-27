@@ -2650,7 +2650,15 @@ if (!gotTheLock) {
   app.quit();
 } else {
   // Register custom protocol for OAuth callback
-  app.setAsDefaultProtocolClient('lobsterai');
+  if (!app.isPackaged) {
+    // In dev mode, setAsDefaultProtocolClient needs the electron exe path
+    // and the app entry point as extra args so the OS can relaunch correctly
+    app.setAsDefaultProtocolClient('lobsterai', process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+  } else {
+    app.setAsDefaultProtocolClient('lobsterai');
+  }
 
   // Buffer for deep link auth code received before renderer is ready
   let pendingAuthCode: string | null = null;
