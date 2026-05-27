@@ -1,11 +1,9 @@
+import { CheckIcon } from '@heroicons/react/24/outline';
 import Lottie from 'lottie-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { CheckIcon } from '@heroicons/react/24/outline';
 
-import mediaGenAnimation from '../icons/MediaGenIcon.json';
-import MagicIcon from '../icons/MagicIcon';
 import { getProviderIcon } from '../../providers/uiRegistry';
 import { authService } from '../../services/auth';
 import { i18nService } from '../../services/i18n';
@@ -13,6 +11,8 @@ import { localStore } from '../../services/store';
 import { RootState } from '../../store';
 import { setMediaModels, setMediaSelection } from '../../store/slices/coworkSlice';
 import type { MediaGenerationMode, MediaModel } from '../../types/mediaGeneration';
+import MagicIcon from '../icons/MagicIcon';
+import mediaGenAnimation from '../icons/MediaGenIcon.json';
 
 interface SavedMediaSelection {
   image?: { modelId: string; modelName: string };
@@ -53,7 +53,7 @@ const MediaModelPicker: React.FC<MediaModelPickerProps> = ({ draftKey, disabled 
 
   const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
   const authQuota = useSelector((state: RootState) => state.auth.quota);
-  const isSubscribed = isLoggedIn && (authQuota?.subscriptionStatus === 'active' || authQuota?.hasPaidCredits === true);
+  const canUseMediaGeneration = isLoggedIn && (authQuota?.subscriptionStatus === 'active' || authQuota?.hasPaidCredits === true);
 
   const mediaModels = useSelector((state: RootState) => state.cowork.mediaModels);
   const selection = useSelector((state: RootState) => state.cowork.mediaSelection[draftKey]);
@@ -119,10 +119,10 @@ const MediaModelPicker: React.FC<MediaModelPickerProps> = ({ draftKey, disabled 
   }, [dispatch, draftKey, mediaModels.image.length, mediaModels.video.length]);
 
   useEffect(() => {
-    if (isOpen && isSubscribed) {
+    if (isOpen && canUseMediaGeneration) {
       fetchModels();
     }
-  }, [isOpen, isSubscribed, fetchModels]);
+  }, [isOpen, canUseMediaGeneration, fetchModels]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -398,8 +398,6 @@ const MediaModelPicker: React.FC<MediaModelPickerProps> = ({ draftKey, disabled 
 
   const currentModels = activeTab === 'image' ? mediaModels.image : mediaModels.video;
 
-  const isMediaActive = selection != null && selection.mode !== 'none';
-
   const triggerIcon = (
     <MagicIcon className="h-5 w-5" />
   );
@@ -447,7 +445,7 @@ const MediaModelPicker: React.FC<MediaModelPickerProps> = ({ draftKey, disabled 
       );
     }
 
-    if (!isSubscribed) {
+    if (!canUseMediaGeneration) {
       return renderPromptPanel(
         i18nService.t('mediaSubscribeTitle'),
         i18nService.t('mediaSubscribeDesc'),

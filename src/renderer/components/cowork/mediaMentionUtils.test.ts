@@ -94,6 +94,37 @@ describe('mediaMentionUtils', () => {
     expect(refs[0].dataUrl).toBe(dataUrl);
   });
 
+  test('extracts the second inline image when prompt references @图片2', () => {
+    const firstDataUrl = 'data:image/png;base64,first';
+    const secondDataUrl = 'data:image/png;base64,second';
+    const labels = computeMediaLabels([
+      makeAttachment({
+        path: 'inline:first.png:1',
+        name: 'first.png',
+        isImage: true,
+        dataUrl: firstDataUrl,
+      }),
+      makeAttachment({
+        path: 'inline:second.png:2',
+        name: 'second.png',
+        isImage: true,
+        dataUrl: secondDataUrl,
+      }),
+    ]);
+
+    const refs = extractMediaReferencesFromPrompt('@图片2 生成一个4s视频', labels);
+
+    expect(refs).toHaveLength(1);
+    expect(refs[0]).toMatchObject({
+      token: '@图片2',
+      index: 2,
+      fileId: 'inline:second.png:2',
+      fileName: 'second.png',
+      dataUrl: secondDataUrl,
+    });
+    expect(refs[0].dataUrl).not.toBe(firstDataUrl);
+  });
+
   test('builds highlight segments for valid media mentions only', () => {
     const labels = computeMediaLabels([
       makeAttachment({ path: '/tmp/first.png', name: 'first.png' }),

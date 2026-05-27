@@ -12,9 +12,9 @@ import {
 import type { OpenClawSessionPatch } from '../../../common/openclawSession';
 import type { CoworkExecutionMode, CoworkMessage, CoworkMessageMetadata, CoworkSession, CoworkSessionStatus, CoworkStore } from '../../coworkStore';
 import { t } from '../../i18n';
+import { MediaGenerationTool } from '../../mediaGenerationPolicy';
 import type { SubagentMessageStore } from '../../subagentMessageStore';
 import type { SubagentRunStore } from '../../subagentRunStore';
-import { MediaGenerationTool } from '../../mediaGenerationPolicy';
 import { getCommandDangerLevel,isDeleteCommand } from '../commandSafety';
 import { setCoworkProxySessionId } from '../coworkOpenAICompatProxy';
 import { extractOpenClawAssistantStreamParts,extractOpenClawAssistantStreamText } from '../openclawAssistantText';
@@ -48,6 +48,7 @@ import { SubagentTracker } from './subagentTracker';
 import type {
   CoworkContextUsage,
   CoworkContinueOptions,
+  CoworkMediaAttachmentRef,
   CoworkMediaSelection,
   CoworkRuntime,
   CoworkRuntimeEvents,
@@ -1095,13 +1096,7 @@ const buildMediaGenerationTurnInstruction = (selection?: CoworkMediaSelection, h
         'However, a media generation skill (e.g. seedream, seedance) is provided in the system prompt. You may use it to fulfill image or video generation requests.',
       ].join('\n');
     }
-    return [
-      '[LobsterAI media generation tools — NOT AVAILABLE]',
-      'The lobsterai_image_generate and lobsterai_video_generate tools are NOT available for this turn.',
-      'The user has not selected a media generation model.',
-      'Do NOT call lobsterai_image_generate or lobsterai_video_generate.',
-      'If the user asks to generate images or videos, inform them to select a media model first via the media model picker (the palette icon in the input bar).',
-    ].join('\n');
+    return '';
   }
 
   const lines = [
@@ -1116,24 +1111,64 @@ const buildMediaGenerationTurnInstruction = (selection?: CoworkMediaSelection, h
     lines.push('If the current user request asks to create, generate, draw, render, or make an image/photo/picture, you must call the lobsterai_image_generate tool exactly once with action="generate".');
     lines.push('Use the current user request and relevant prior conversation as the image prompt.');
     lines.push('Do not answer with only a text prompt when the user asked for an image.');
+    const imageModel = selection.imageModelId?.trim() || selection.modelId?.trim();
+    if (imageModel) {
+      lines.push(`You MUST use model "${imageModel}" for image generation. Do NOT use any other model for the generate action, even if other models appear in the available model list.`);
+    }
   } else if (selection.mode === 'video') {
     lines.push('If the current user request asks to create, generate, render, or make a video, you must call the lobsterai_video_generate tool exactly once with action="generate".');
     lines.push('Use the current user request and relevant prior conversation as the video prompt.');
     lines.push('Do not answer with only a text prompt when the user asked for a video.');
+    const videoModel = selection.videoModelId?.trim() || selection.modelId?.trim();
+    if (videoModel) {
+      lines.push(`You MUST use model "${videoModel}" for video generation. Do NOT use any other model for the generate action, even if other models appear in the available model list.`);
+    }
   } else {
     lines.push('If the current user request asks for image generation, call lobsterai_image_generate with action="generate".');
     lines.push('If the current user request asks for video generation, call lobsterai_video_generate with action="generate".');
     lines.push('Use the current user request and relevant prior conversation as the media prompt.');
     if (selection.imageModelId?.trim()) {
-      lines.push(`For image generation, use model "${selection.imageModelId.trim()}".`);
+      lines.push(`For image generation, you MUST use model "${selection.imageModelId.trim()}". Do NOT use a different model.`);
     }
     if (selection.videoModelId?.trim()) {
-      lines.push(`For video generation, use model "${selection.videoModelId.trim()}".`);
+      lines.push(`For video generation, you MUST use model "${selection.videoModelId.trim()}". Do NOT use a different model.`);
     }
   }
 
   if (!selection.imageModelId && !selection.videoModelId && selection.modelId?.trim()) {
-    lines.push(`Use model "${selection.modelId.trim()}" unless the user explicitly requests a different LobsterAI media model.`);
+    lines.push(`You MUST use model "${selection.modelId.trim()}" for media generation. Do NOT use a different model unless the user explicitly requests a different LobsterAI media model by name.`);
+  }
+
+  return lines.join('\n');
+};
+
+const MediaReferenceTypeLabel = {
+  Image: 'image',
+  Video: 'video',
+  Audio: 'audio',
+} as const;
+
+const sanitizeMediaReferenceText = (value: string): string => (
+  value.replace(/[\r\n]+/g, ' ').trim().slice(0, 200)
+);
+
+const buildMediaReferencePromptSection = (mediaReferences?: CoworkMediaAttachmentRef[]): string => {
+  const refs = mediaReferences?.filter(ref => ref.token.trim()) ?? [];
+  if (refs.length === 0) return '';
+
+  const lines = [
+    '[LobsterAI media reference mapping]',
+    'The current user request contains explicit @ media tokens. Treat these mappings as authoritative and do not guess which uploaded attachment a token means.',
+    'When calling lobsterai_image_generate or lobsterai_video_generate for these tokens, LobsterAI host will inject the referenced media into the tool request. Do not search the filesystem for uploaded images.',
+  ];
+
+  for (const ref of refs) {
+    const mediaType = ref.mediaType === MediaReferenceTypeLabel.Image
+      ? MediaReferenceTypeLabel.Image
+      : ref.mediaType === MediaReferenceTypeLabel.Video
+        ? MediaReferenceTypeLabel.Video
+        : MediaReferenceTypeLabel.Audio;
+    lines.push(`- ${ref.token}: ${mediaType} attachment #${ref.index}, file "${sanitizeMediaReferenceText(ref.fileName)}", MIME ${sanitizeMediaReferenceText(ref.mimeType)}.`);
   }
 
   return lines.join('\n');
@@ -2173,6 +2208,7 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
       imageAttachments: options.imageAttachments,
       agentId: options.agentId,
       mediaSelection: options.mediaSelection,
+      mediaReferences: options.mediaReferences,
     });
   }
 
@@ -2183,6 +2219,7 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
       skillIds: options.skillIds,
       imageAttachments: options.imageAttachments,
       mediaSelection: options.mediaSelection,
+      mediaReferences: options.mediaReferences,
     });
   }
 
@@ -2401,6 +2438,7 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
       imageAttachments?: Array<{ name: string; mimeType: string; base64Data: string }>;
       agentId?: string;
       mediaSelection?: CoworkMediaSelection;
+      mediaReferences?: CoworkMediaAttachmentRef[];
     },
   ): Promise<void> {
     if (!prompt.trim() && (!options.imageAttachments || options.imageAttachments.length === 0)) {
@@ -2487,6 +2525,7 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
       prompt,
       outboundSystemPrompt,
       agentId,
+      options.mediaReferences,
     );
     const runCwd = session.cwd?.trim() ? path.resolve(session.cwd.trim()) : undefined;
     const completionPromise = new Promise<void>((resolve, reject) => {
@@ -2588,6 +2627,7 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
     prompt: string,
     systemPrompt?: string,
     agentId?: string,
+    mediaReferences?: CoworkMediaAttachmentRef[],
   ): Promise<string> {
     const normalizedSystemPrompt = (systemPrompt ?? '').trim();
     const previousSystemPrompt = this.lastSystemPromptBySession.get(sessionId) ?? '';
@@ -2614,6 +2654,10 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
     sections.push(buildOpenClawLocalTimeContextPrompt());
     if (currentModel) {
       sections.push(`[Session info]\nCurrent model: ${currentModel}`);
+    }
+    const mediaReferenceSection = buildMediaReferencePromptSection(mediaReferences);
+    if (mediaReferenceSection) {
+      sections.push(mediaReferenceSection);
     }
 
     if (this.bridgedSessions.has(sessionId)) {

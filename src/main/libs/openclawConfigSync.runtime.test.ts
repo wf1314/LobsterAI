@@ -112,7 +112,7 @@ describe('OpenClawConfigSync runtime config output', () => {
     setSystemProxyEnabled(false);
   });
 
-  const createSync = async () => {
+  const createSync = async (overrides: Record<string, unknown> = {}) => {
     const { OpenClawConfigSync } = await import('./openclawConfigSync');
 
     return new OpenClawConfigSync({
@@ -149,7 +149,8 @@ describe('OpenClawConfigSync runtime config output', () => {
       getIMSettings: () => null,
       getSkillsList: () => [],
       getAgents: () => [],
-    });
+      ...overrides,
+    } as never);
   };
 
   test('writes model provider env-proxy transport when system proxy is enabled', async () => {
@@ -535,6 +536,43 @@ describe('OpenClawConfigSync runtime config output', () => {
 
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     expect(config.agents.defaults.models).toBeUndefined();
+  });
+
+  test('enables media generation plugin when media entitlement is available', async () => {
+    const sync = await createSync({
+      canUseMediaGeneration: () => true,
+      getMediaCallbackUrl: () => 'http://127.0.0.1:5175/media-callback',
+    });
+
+    const result = sync.sync('media-entitlement-enabled');
+    expect(result.ok).toBe(true);
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(config.plugins.entries['lobster-media-generation']).toEqual({
+      enabled: true,
+      config: {
+        callbackUrl: 'http://127.0.0.1:5175/media-callback',
+        secret: '${LOBSTER_MCP_BRIDGE_SECRET}',
+        requestTimeoutMs: 120000,
+      },
+    });
+    expect(config.tools.deny).not.toContain('image_generate');
+    expect(config.tools.deny).not.toContain('video_generate');
+  });
+
+  test('does not configure media generation plugin without media entitlement', async () => {
+    const sync = await createSync({
+      canUseMediaGeneration: () => false,
+      getMediaCallbackUrl: () => 'http://127.0.0.1:5175/media-callback',
+    });
+
+    const result = sync.sync('media-entitlement-disabled');
+    expect(result.ok).toBe(true);
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(config.plugins.entries['lobster-media-generation']).toEqual({ enabled: false });
+    expect(config.tools.deny).not.toContain('image_generate');
+    expect(config.tools.deny).not.toContain('video_generate');
   });
 
   test('maps OpenAI OAuth mode to the OpenAI Codex provider', async () => {
