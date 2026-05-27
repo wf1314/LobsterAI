@@ -1248,6 +1248,10 @@ const translations: Record<LanguageType, Record<string, string>> = {
     kitBack: '返回',
     kitTryAsking: '试试这样问...',
     kitSkills: '技能',
+    kitDescription: '精选专家工具包，一键解锁智能体更多能力',
+    kitMarketplace: '套件市场',
+    kitSkillCount: '{count} 个技能',
+    kitOfficial: '官方',
 
     // MCP 服务
     mcpServers: 'MCP',
@@ -3519,6 +3523,10 @@ const translations: Record<LanguageType, Record<string, string>> = {
     kitBack: 'Back',
     kitTryAsking: 'Try asking...',
     kitSkills: 'Skills',
+    kitDescription: 'Curated expert toolkits to power up your AI agent in one click',
+    kitMarketplace: 'Marketplace',
+    kitSkillCount: '{count} skills',
+    kitOfficial: 'Official',
 
     // MCP Servers
     mcpServers: 'MCP',

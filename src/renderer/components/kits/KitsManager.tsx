@@ -8,6 +8,8 @@ import type { InstalledKit, MarketplaceKit } from '../../types/kit';
 import SearchIcon from '../icons/SearchIcon';
 import SidebarKitsIcon from '../icons/SidebarKitsIcon';
 
+type KitTab = 'installed' | 'marketplace';
+
 const KitsManager: React.FC = () => {
   const [kits, setKits] = useState<MarketplaceKit[]>([]);
   const [installedKits, setInstalledKits] = useState<Record<string, InstalledKit>>({});
@@ -16,6 +18,7 @@ const KitsManager: React.FC = () => {
   const [selectedKit, setSelectedKit] = useState<MarketplaceKit | null>(null);
   const [operatingKitId, setOperatingKitId] = useState<string | null>(null);
   const [operationType, setOperationType] = useState<'install' | 'uninstall' | null>(null);
+  const [activeTab, setActiveTab] = useState<KitTab>('marketplace');
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -33,14 +36,24 @@ const KitsManager: React.FC = () => {
   }, [loadData]);
 
   const filteredKits = useMemo(() => {
-    if (!searchQuery.trim()) return kits;
-    const q = searchQuery.toLowerCase();
-    return kits.filter((kit) => {
-      const name = resolveLocalizedText(kit.name).toLowerCase();
-      const desc = resolveLocalizedText(kit.description).toLowerCase();
-      return name.includes(q) || desc.includes(q);
-    });
-  }, [kits, searchQuery]);
+    let results = kits;
+    // Tab filtering
+    if (activeTab === 'installed') {
+      results = results.filter((kit) => !!installedKits[kit.id]);
+    }
+    // Search filtering
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      results = results.filter((kit) => {
+        const name = resolveLocalizedText(kit.name).toLowerCase();
+        const desc = resolveLocalizedText(kit.description).toLowerCase();
+        return name.includes(q) || desc.includes(q);
+      });
+    }
+    return results;
+  }, [kits, searchQuery, activeTab, installedKits]);
+
+  const installedCount = useMemo(() => Object.keys(installedKits).length, [installedKits]);
 
   const handleInstall = async (kit: MarketplaceKit) => {
     setOperatingKitId(kit.id);
@@ -111,12 +124,9 @@ const KitsManager: React.FC = () => {
               type="button"
               disabled={operating}
               onClick={() => handleUninstall(selectedKit.id)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+              className="p-1.5 rounded-lg text-secondary hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-50"
             >
-              <TrashIcon className="h-3.5 w-3.5" />
-              {operating && operationType === 'uninstall'
-                ? i18nService.t('kitUninstalling')
-                : i18nService.t('kitUninstall')}
+              <TrashIcon className="h-4 w-4" />
             </button>
           ) : (
             <button
@@ -183,6 +193,13 @@ const KitsManager: React.FC = () => {
   // List view
   return (
     <div className="space-y-4">
+      {/* Description */}
+      <div>
+        <p className="text-sm text-secondary">
+          {i18nService.t('kitDescription')}
+        </p>
+      </div>
+
       {/* Search */}
       <div className="relative">
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary pointer-events-none" />
@@ -204,6 +221,43 @@ const KitsManager: React.FC = () => {
         )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center border-b border-border">
+        <button
+          type="button"
+          onClick={() => setActiveTab('installed')}
+          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            activeTab === 'installed'
+              ? 'text-foreground'
+              : 'text-secondary hover:text-foreground'
+          }`}
+        >
+          {i18nService.t('kitInstalled')}
+          {installedCount > 0 && (
+            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-surface-raised">
+              {installedCount}
+            </span>
+          )}
+          <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full transition-colors ${
+            activeTab === 'installed' ? 'bg-primary' : 'bg-transparent'
+          }`} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('marketplace')}
+          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            activeTab === 'marketplace'
+              ? 'text-foreground'
+              : 'text-secondary hover:text-foreground'
+          }`}
+        >
+          {i18nService.t('kitMarketplace')}
+          <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full transition-colors ${
+            activeTab === 'marketplace' ? 'bg-primary' : 'bg-transparent'
+          }`} />
+        </button>
+      </div>
+
       {/* Kit grid */}
       {isLoading ? (
         <div className="text-center py-12 text-sm text-secondary">
@@ -222,7 +276,7 @@ const KitsManager: React.FC = () => {
             return (
               <div
                 key={kit.id}
-                className="rounded-xl border border-border bg-surface p-3 transition-colors hover:border-primary cursor-pointer"
+                className="rounded-xl border border-border bg-surface p-3 transition-colors hover:border-primary cursor-pointer flex flex-col"
                 onClick={() => setSelectedKit(kit)}
               >
                 <div className="flex items-start justify-between mb-2">
@@ -241,12 +295,9 @@ const KitsManager: React.FC = () => {
                       type="button"
                       disabled={operating}
                       onClick={(e) => { e.stopPropagation(); handleUninstall(kit.id); }}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors flex-shrink-0 disabled:opacity-50"
+                      className="p-1 rounded-lg text-secondary hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0 disabled:opacity-50"
                     >
-                      <TrashIcon className="h-3 w-3" />
-                      {operating && operationType === 'uninstall'
-                        ? i18nService.t('kitUninstalling')
-                        : i18nService.t('kitUninstall')}
+                      <TrashIcon className="h-4 w-4" />
                     </button>
                   ) : (
                     <button
@@ -263,9 +314,34 @@ const KitsManager: React.FC = () => {
                   )}
                 </div>
 
-                <p className="text-xs text-secondary line-clamp-2">
+                <p className="text-xs text-secondary line-clamp-2 mb-2 flex-1">
                   {resolveLocalizedText(kit.description)}
                 </p>
+
+                {/* Bottom metadata row */}
+                <div className="flex items-center gap-2 text-[10px] text-secondary">
+                  {kit.author && (
+                    <>
+                      <span className="px-1.5 py-0.5 rounded bg-primary-muted text-primary font-medium">
+                        {i18nService.t('kitOfficial')}
+                      </span>
+                      <span>·</span>
+                    </>
+                  )}
+                  {kit.version && (
+                    <>
+                      <span className="px-1.5 py-0.5 rounded bg-surface-raised font-medium">
+                        v{kit.version}
+                      </span>
+                      <span>·</span>
+                    </>
+                  )}
+                  {kit.skills && kit.skills.list.length > 0 && (
+                    <span>
+                      {i18nService.t('kitSkillCount').replace('{count}', String(kit.skills.list.length))}
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
