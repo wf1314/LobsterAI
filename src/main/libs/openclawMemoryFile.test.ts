@@ -1,4 +1,9 @@
-import { test, expect } from 'vitest';
+import { test, expect, vi } from 'vitest';
+
+vi.mock('electron', () => ({
+  app: { getAppPath: () => process.cwd(), getPath: () => '/tmp' },
+}));
+
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
