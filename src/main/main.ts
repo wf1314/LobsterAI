@@ -9096,6 +9096,55 @@ end tell'`,
     });
     profiler.measure('coworkOpenAICompatProxy');
 
+    // ── Pre-warm quota & model caches so startup sync generates correct config ──
+    // Without this, cachedSubscriptionStatus starts as 'free' and serverModelMetadataCache
+    // is empty. When the renderer later fetches real values, the "change" triggers redundant
+    // syncOpenClawConfig calls while the gateway is still starting up.
+    if (getAuthTokens()) {
+      profiler.mark('startupCacheWarmup');
+      const serverBaseUrl = getServerApiBaseUrl();
+      const warmupTimeout = 5000;
+      await Promise.allSettled([
+        (async () => {
+          try {
+            const resp = await fetchWithAuth(`${serverBaseUrl}/api/user/quota`, {
+              signal: AbortSignal.timeout(warmupTimeout),
+            });
+            if (!resp.ok) return;
+            const body = (await resp.json()) as { code: number; data: Record<string, unknown> };
+            if (body.code !== 0 || !body.data) return;
+            const quota = normalizeAuthQuota(body.data, {
+              freePlanName: t('authPlanFree'),
+              standardPlanName: t('authPlanStandard'),
+              fallbackSubscriptionStatus: cachedSubscriptionStatus,
+            });
+            const gateState = authQuotaGateStateFromQuota(quota);
+            cachedSubscriptionStatus = gateState.subscriptionStatus;
+            cachedMediaGenerationEntitled = gateState.mediaGenerationEntitled;
+            console.log(`[Main] startup cache warmup: subscription=${gateState.subscriptionStatus}, mediaEntitled=${gateState.mediaGenerationEntitled}`);
+          } catch (err) {
+            console.debug('[Main] startup cache warmup: quota fetch failed (non-fatal):', err);
+          }
+        })(),
+        (async () => {
+          try {
+            const url = appendKeyfromQuery(`${serverBaseUrl}/api/models/available`);
+            const resp = await fetchWithAuth(url, {
+              signal: AbortSignal.timeout(warmupTimeout),
+            });
+            if (!resp.ok) return;
+            const data = (await resp.json()) as { code: number; data: Array<{ modelId: string; supportsImage?: boolean; supportsThinking?: boolean; contextWindow?: number }> };
+            if (data.code !== 0 || !data.data) return;
+            updateServerModelMetadata(data.data);
+            console.log(`[Main] startup cache warmup: loaded ${data.data.length} server models`);
+          } catch (err) {
+            console.debug('[Main] startup cache warmup: models fetch failed (non-fatal):', err);
+          }
+        })(),
+      ]);
+      profiler.measure('startupCacheWarmup');
+    }
+
     profiler.mark('syncOpenClawConfig');
     const startupSync = await syncOpenClawConfig({
       reason: 'startup',
