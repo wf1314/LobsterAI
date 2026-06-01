@@ -16,7 +16,6 @@ export type HtmlShareSourceType = (typeof HtmlShareSourceType)[keyof typeof Html
 
 export const HtmlShareAccessMode = {
   Code: 'code',
-  Public: 'public',
 } as const;
 
 export type HtmlShareAccessMode = (typeof HtmlShareAccessMode)[keyof typeof HtmlShareAccessMode];

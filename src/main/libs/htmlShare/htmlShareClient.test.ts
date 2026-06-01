@@ -39,12 +39,14 @@ describe('htmlShareClient', () => {
   test('uploads to the selected server and returns the server share URL', async () => {
     const archivePath = await createArchiveFile();
     let requestedUrl = '';
+    let requestedForm: FormData | null = null;
 
     const result = await uploadHtmlShare(
       'https://lobsterai-server.inner.youdao.com',
       'https://lobsterai-server.inner.youdao.com/s',
-      async url => {
+      async (url, options) => {
         requestedUrl = url;
+        if (options?.body instanceof FormData) requestedForm = options.body;
         return new Response(
           JSON.stringify({
             code: 0,
@@ -65,7 +67,6 @@ describe('htmlShareClient', () => {
       {
         archivePath,
         sourceType: HtmlShareSourceType.HtmlFile,
-        accessMode: HtmlShareAccessMode.Code,
         clientSourceKey: 'source-key',
         sessionId: 'session-1',
         artifactId: 'artifact-1',
@@ -76,6 +77,8 @@ describe('htmlShareClient', () => {
     );
 
     expect(requestedUrl).toBe('https://lobsterai-server.inner.youdao.com/api/html-shares');
+    expect(requestedForm).not.toBeNull();
+    expect(requestedForm!.get('accessMode')).toBeNull();
     expect(result.success).toBe(true);
     expect(result.url).toBe('https://lobsterai-server.youdao.com/s/shr_test/');
     expect(result.shareCode).toBe('K7Q9P2');
@@ -93,7 +96,7 @@ describe('htmlShareClient', () => {
             code: 0,
             data: {
               shareId: 'shr_test',
-              accessMode: HtmlShareAccessMode.Public,
+              accessMode: HtmlShareAccessMode.Code,
               status: HtmlShareStatus.Live,
             },
           }),
@@ -105,7 +108,6 @@ describe('htmlShareClient', () => {
       {
         archivePath,
         sourceType: HtmlShareSourceType.HtmlFile,
-        accessMode: HtmlShareAccessMode.Public,
         clientSourceKey: 'source-key',
         title: 'Preview',
         entryFile: 'index.html',
@@ -121,6 +123,7 @@ describe('htmlShareClient', () => {
     const archivePath = await createArchiveFile();
     let requestedUrl = '';
     let requestedMethod = '';
+    let requestedForm: FormData | null = null;
 
     const result = await updateHtmlShare(
       'https://lobsterai-server.inner.youdao.com',
@@ -128,13 +131,14 @@ describe('htmlShareClient', () => {
       async (url, options) => {
         requestedUrl = url;
         requestedMethod = options?.method || '';
+        if (options?.body instanceof FormData) requestedForm = options.body;
         return new Response(
           JSON.stringify({
             code: 0,
             data: {
               shareId: 'shr_test',
               url: 'https://lobsterai-server.youdao.com/s/shr_test/',
-              accessMode: HtmlShareAccessMode.Public,
+              accessMode: HtmlShareAccessMode.Code,
               status: HtmlShareStatus.Live,
             },
           }),
@@ -148,7 +152,6 @@ describe('htmlShareClient', () => {
       {
         archivePath,
         sourceType: HtmlShareSourceType.HtmlFile,
-        accessMode: HtmlShareAccessMode.Public,
         clientSourceKey: 'source-key',
         title: 'Preview',
         entryFile: 'index.html',
@@ -158,6 +161,8 @@ describe('htmlShareClient', () => {
 
     expect(requestedUrl).toBe('https://lobsterai-server.inner.youdao.com/api/html-shares/shr_test');
     expect(requestedMethod).toBe('PUT');
+    expect(requestedForm).not.toBeNull();
+    expect(requestedForm!.get('accessMode')).toBeNull();
     expect(result.success).toBe(true);
     expect(result.url).toBe('https://lobsterai-server.youdao.com/s/shr_test/');
   });

@@ -791,7 +791,6 @@ interface IElectronAPI {
       artifactId: string;
       filePath: string;
       title: string;
-      accessMode: HtmlShareAccessMode;
     }) => Promise<HtmlShareResult>;
     updateFromHtmlFile: (options: {
       shareId: string;
@@ -799,7 +798,6 @@ interface IElectronAPI {
       artifactId: string;
       filePath: string;
       title: string;
-      accessMode: HtmlShareAccessMode;
     }) => Promise<HtmlShareResult>;
     getByHtmlFile: (options: {
       filePath: string;

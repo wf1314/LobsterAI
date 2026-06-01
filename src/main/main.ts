@@ -53,7 +53,6 @@ import {
 import { DialogIpc } from '../shared/dialog/constants';
 import {
   HtmlShareAccessMode,
-  type HtmlShareAccessMode as HtmlShareAccessModeType,
   HtmlShareErrorCode,
   HtmlShareIpc,
   HtmlShareSourceType,
@@ -312,7 +311,6 @@ interface HtmlShareCreateFromHtmlFileInput {
   artifactId: string;
   filePath: string;
   title: string;
-  accessMode: HtmlShareAccessModeType;
 }
 
 interface HtmlShareUpdateFromHtmlFileInput extends HtmlShareCreateFromHtmlFileInput {
@@ -345,12 +343,12 @@ function sanitizeHtmlShareTitle(value: unknown): string {
   return sanitizeHtmlShareString(value, 'title', 255);
 }
 
-function sanitizeHtmlShareAccessMode(value: unknown): HtmlShareAccessModeType {
+function validateHtmlShareAccessMode(value: unknown): void {
+  if (value === undefined) return;
   const accessMode = sanitizeHtmlShareString(value, 'accessMode', 32);
-  if (accessMode !== HtmlShareAccessMode.Code && accessMode !== HtmlShareAccessMode.Public) {
-    throw new Error('accessMode must be code or public.');
+  if (accessMode !== HtmlShareAccessMode.Code) {
+    throw new Error('accessMode must be code.');
   }
-  return accessMode;
 }
 
 function sanitizeCreateFromHtmlFileInput(input: unknown): HtmlShareCreateFromHtmlFileInput {
@@ -358,12 +356,12 @@ function sanitizeCreateFromHtmlFileInput(input: unknown): HtmlShareCreateFromHtm
     throw new Error('Invalid HTML share request.');
   }
   const source = input as Record<string, unknown>;
+  validateHtmlShareAccessMode(source.accessMode);
   return {
     sessionId: sanitizeHtmlShareString(source.sessionId, 'sessionId', 128),
     artifactId: sanitizeHtmlShareString(source.artifactId, 'artifactId', 128),
     filePath: sanitizeHtmlShareString(source.filePath, 'filePath', 4096),
     title: sanitizeHtmlShareTitle(source.title),
-    accessMode: sanitizeHtmlShareAccessMode(source.accessMode),
   };
 }
 
@@ -4153,7 +4151,7 @@ if (!gotTheLock) {
         `[HtmlShare] received HTML file share request for session ${options.sessionId} and artifact ${options.artifactId}`,
       );
       console.debug(
-        `[HtmlShare] HTML file share uses ${options.accessMode} access and source file ${options.filePath}`,
+        `[HtmlShare] HTML file share uses share-code access and source file ${options.filePath}`,
       );
       const clientSourceKey = buildHtmlShareClientSourceKey(options.filePath);
       const packaged = await packageHtmlFile(options.filePath);
@@ -4168,7 +4166,6 @@ if (!gotTheLock) {
         {
           archivePath: packaged.archivePath,
           sourceType: HtmlShareSourceType.HtmlFile,
-          accessMode: options.accessMode,
           clientSourceKey,
           sessionId: options.sessionId,
           artifactId: options.artifactId,
@@ -4244,7 +4241,6 @@ if (!gotTheLock) {
         {
           archivePath: packaged.archivePath,
           sourceType: HtmlShareSourceType.HtmlFile,
-          accessMode: options.accessMode,
           clientSourceKey,
           sessionId: options.sessionId,
           artifactId: options.artifactId,

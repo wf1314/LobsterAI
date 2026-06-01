@@ -9,7 +9,6 @@ import {
 export interface CreateHtmlShareUploadInput {
   archivePath: string;
   sourceType: (typeof HtmlShareSourceType)[keyof typeof HtmlShareSourceType];
-  accessMode: (typeof HtmlShareAccessMode)[keyof typeof HtmlShareAccessMode];
   clientSourceKey?: string;
   sessionId?: string;
   artifactId?: string;
@@ -66,7 +65,6 @@ function appendHtmlShareFormData(form: FormData, input: CreateHtmlShareUploadInp
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength,
   ) as ArrayBuffer;
-  form.set('accessMode', input.accessMode);
   if (input.clientSourceKey) form.set('clientSourceKey', input.clientSourceKey);
   if (input.sessionId) form.set('sessionId', input.sessionId);
   if (input.artifactId) form.set('artifactId', input.artifactId);
@@ -110,7 +108,7 @@ export async function uploadHtmlShare(
     `[HtmlShare] prepared ${buffer.length} bytes for ${input.sourceType} upload to ${serverBaseUrl}`,
   );
   console.debug(
-    `[HtmlShare] upload request uses ${input.accessMode} access, entry ${input.entryFile}, and hash ${input.sourceSha256}`,
+    `[HtmlShare] upload request uses share-code access, entry ${input.entryFile}, and hash ${input.sourceSha256}`,
   );
   const form = new FormData();
   form.set('sourceType', input.sourceType);
