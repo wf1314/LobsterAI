@@ -63,7 +63,7 @@ LobsterAI 当前通过 OpenClaw 执行 MCP。对于 stdio 类型的 MCP，用户
 
 1. `npm view <package>@<version> version --json`
 2. `npm install --prefix <managed-dir> --omit=dev --no-audit --no-fund <package>@<version>`
-3. 读取安装包 `package.json` 的 `bin` 字段
+3. 读取安装包 `package.json` 的 `bin` 字段。scoped npm 包必须按 `node_modules/@scope/name` 解析，不能去掉 `@scope` 前缀。
 4. 生成 `node <absolute-bin-path> ...extraArgs` 作为 OpenClaw 启动命令
 
 ### FR-3: OpenClaw 配置同步使用 ready 结果
@@ -72,6 +72,7 @@ OpenClaw 配置同步时：
 
 - 若 `ready` 状态与当前源配置指纹匹配，则写入优化后的 `command/args/env`。
 - 若状态为 `pending` 或 `installing`，则跳过该 MCP，并异步继续解析。
+- 若状态为 `installing` 但当前进程没有对应 in-flight 任务，且记录更新时间已超过安装超时宽限，应视为历史中断状态并重新触发解析，避免应用重启或安装进程异常退出后永久卡住。
 - 若状态为 `failed`，则跳过该 MCP，避免当次会话继续被慢路径或失败路径拖住。
 - 若状态为 `unsupported`，则回退原始命令。
 
@@ -153,7 +154,9 @@ node <userData>/openclaw/mcp-packages/<server>/<package>/node_modules/<package>/
 | npm install 超时 | 记录 failed，不阻塞当次会话 |
 | 包没有 bin 字段 | 记录 failed |
 | 包有多个 bin 字段 | 优先选择与包名匹配的 bin，否则选择第一个 |
+| scoped npm 包 | 安装路径按 `node_modules/@scope/name` 解析 |
 | 用户修改 command/args/env | 源配置指纹变化，旧 ready 结果失效并重新解析 |
+| 历史 `installing` 记录 | 若无当前 in-flight 任务且已超时，重新触发解析 |
 | 当前命令不是 npx | 标记或视为 unsupported/raw，保留原始启动方式 |
 | npx 参数形态暂不支持 | 回退原始启动方式，避免破坏已有 MCP |
 
@@ -161,6 +164,7 @@ node <userData>/openclaw/mcp-packages/<server>/<package>/node_modules/<package>/
 
 - `src/main/mcpLaunchResolution.ts`
 - `src/main/mcpLaunchResolverManager.ts`
+- `src/main/mcpLaunchResolverManager.test.ts`
 - `src/main/mcpStore.ts`
 - `src/main/sqliteStore.ts`
 - `src/main/main.ts`
@@ -179,5 +183,7 @@ node <userData>/openclaw/mcp-packages/<server>/<package>/node_modules/<package>/
 - OpenClaw 配置同步日志包含 optimized/raw/skipped 统计。
 - npm 解析失败时，MCP 管理页展示“安装失败”，点击重试后重新解析。
 - 解析失败或安装中不阻塞 Cowork 首次响应。
+- scoped npm 包安装成功后能正确读取 `node_modules/@scope/name/package.json` 并生成 ready 记录。
+- 应用重启或进程中断留下的陈旧 `installing` 记录会在后续配置同步时自动重试。
 - 不支持的 stdio 命令继续按原始命令写入 OpenClaw。
 - `npm run build -- --mode development` 通过。
