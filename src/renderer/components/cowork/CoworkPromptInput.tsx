@@ -70,6 +70,7 @@ import SelectedTextSnippetBadge from './SelectedTextSnippetBadge';
 import { usePersistAgentModelSelection } from './usePersistAgentModelSelection';
 import { useCoworkVoiceInput } from './voiceInput/useCoworkVoiceInput';
 import VoiceInputButton from './voiceInput/VoiceInputButton';
+import VoiceInputRecordingStatus from './voiceInput/VoiceInputRecordingStatus';
 
 // CoworkAttachment is aliased from the Redux-persisted DraftAttachment type
 // so that attachment state survives view switches (cowork ↔ skills, etc.)
@@ -414,6 +415,7 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
     handleVoiceInput,
     isVoiceRecording,
     isVoiceRecognizing,
+    recordingElapsedSeconds,
   } = useCoworkVoiceInput({
     draftKey,
     value,
@@ -1465,15 +1467,20 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
   const largeInputToolActions = (
     <div className="flex items-center gap-0.5">
       {largeInputActions}
-      {!remoteManaged && renderVoiceInputButton(
-        'flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg',
-        'h-5 w-5',
-      )}
       <MediaModelPicker draftKey={draftKey} disabled={disabled} />
     </div>
   );
   const largeSendButtonSizeClass = useCompactSendButton ? 'h-7 w-7' : 'h-8 w-8';
   const largeSendIconSizeClass = useCompactSendButton ? 'h-4 w-4' : 'h-[18px] w-[18px]';
+  const largeVoiceInputButton = !remoteManaged ? renderVoiceInputButton(
+    `flex ${largeSendButtonSizeClass} shrink-0 items-center justify-center rounded-lg`,
+    largeSendIconSizeClass,
+  ) : null;
+  const largeVoiceRecordingStatus = isVoiceRecording ? (
+    <div className="mx-1 hidden shrink-0 justify-end md:flex">
+      <VoiceInputRecordingStatus elapsedSeconds={recordingElapsedSeconds} />
+    </div>
+  ) : null;
 
   const largeSendButton = isStreaming ? (
     <button
@@ -1717,9 +1724,11 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
                   <div className="flex min-w-0 items-center gap-2">
                     {largeInputToolActions}
                   </div>
+                  {largeVoiceRecordingStatus}
                   <div className="flex shrink-0 items-center gap-2">
                     {contextUsageControl}
                     {largeModelSelector}
+                    {largeVoiceInputButton}
                     {largeSendButton}
                   </div>
                 </div>
@@ -1869,9 +1878,11 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
                   )}
                   {largeInputToolActions}
                 </div>
+                {largeVoiceRecordingStatus}
                 <div className="flex shrink-0 items-center gap-2">
                   {contextUsageControl}
                   {largeModelSelector}
+                  {largeVoiceInputButton}
                   {largeSendButton}
                 </div>
               </div>

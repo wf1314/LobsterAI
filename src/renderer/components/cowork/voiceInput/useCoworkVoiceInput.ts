@@ -1,4 +1,4 @@
-import { type Dispatch, type RefObject, type SetStateAction,useCallback, useEffect, useRef, useState } from 'react';
+import { type Dispatch, type RefObject, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 
 import {
@@ -17,6 +17,8 @@ const VoiceInputState = {
 } as const;
 
 type VoiceInputState = typeof VoiceInputState[keyof typeof VoiceInputState];
+
+const VOICE_INPUT_TIMER_INTERVAL_MS = 250;
 
 interface UseCoworkVoiceInputOptions {
   draftKey: string;
@@ -47,8 +49,10 @@ export const useCoworkVoiceInput = ({
 }: UseCoworkVoiceInputOptions) => {
   const dispatch = useDispatch();
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>(VoiceInputState.Idle);
+  const [recordingElapsedSeconds, setRecordingElapsedSeconds] = useState(0);
   const voiceRecordingRef = useRef<VoiceRecordingSession | null>(null);
   const voiceAutoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceRecordingStartedAtRef = useRef<number | null>(null);
   const valueRef = useRef(value);
 
   const appendRecognizedVoiceText = useCallback((recognizedText: string) => {
@@ -81,8 +85,10 @@ export const useCoworkVoiceInput = ({
     const recording = voiceRecordingRef.current;
     if (!recording) return;
     voiceRecordingRef.current = null;
+    voiceRecordingStartedAtRef.current = null;
     clearVoiceAutoStopTimer();
     setVoiceInputState(VoiceInputState.Recognizing);
+    setRecordingElapsedSeconds(0);
     try {
       const wavBlob = await recording.stop();
       const result = await recognizeVoiceInput(wavBlob);
@@ -106,6 +112,8 @@ export const useCoworkVoiceInput = ({
       textareaRef.current?.focus();
       const recording = await startVoiceRecording();
       voiceRecordingRef.current = recording;
+      voiceRecordingStartedAtRef.current = Date.now();
+      setRecordingElapsedSeconds(0);
       setVoiceInputState(VoiceInputState.Recording);
       voiceAutoStopTimerRef.current = setTimeout(() => {
         void stopVoiceRecordingAndRecognize();
@@ -113,8 +121,10 @@ export const useCoworkVoiceInput = ({
     } catch (error) {
       voiceRecordingRef.current?.cancel();
       voiceRecordingRef.current = null;
+      voiceRecordingStartedAtRef.current = null;
       clearVoiceAutoStopTimer();
       setVoiceInputState(VoiceInputState.Idle);
+      setRecordingElapsedSeconds(0);
       showToast(getAsrErrorMessage(error));
     }
   }, [
@@ -132,8 +142,26 @@ export const useCoworkVoiceInput = ({
       clearVoiceAutoStopTimer();
       voiceRecordingRef.current?.cancel();
       voiceRecordingRef.current = null;
+      voiceRecordingStartedAtRef.current = null;
     };
   }, [clearVoiceAutoStopTimer]);
+
+  useEffect(() => {
+    if (voiceInputState !== VoiceInputState.Recording) {
+      return;
+    }
+
+    const updateElapsedSeconds = () => {
+      const startedAt = voiceRecordingStartedAtRef.current;
+      if (!startedAt) return;
+      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+      setRecordingElapsedSeconds(Math.min(elapsedSeconds, VOICE_INPUT_MAX_RECORDING_MS / 1000));
+    };
+
+    updateElapsedSeconds();
+    const interval = window.setInterval(updateElapsedSeconds, VOICE_INPUT_TIMER_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, [voiceInputState]);
 
   useEffect(() => {
     valueRef.current = value;
@@ -143,5 +171,6 @@ export const useCoworkVoiceInput = ({
     handleVoiceInput,
     isVoiceRecording: voiceInputState === VoiceInputState.Recording,
     isVoiceRecognizing: voiceInputState === VoiceInputState.Recognizing,
+    recordingElapsedSeconds,
   };
 };
