@@ -2617,6 +2617,7 @@ const getAppIconPath = (): string | undefined => {
 let mainWindow: BrowserWindow | null = null;
 
 let isQuitting = false;
+let isDataMigrationRestoreInProgress = false;
 
 // 存储活跃的流式请求控制器
 const activeStreamControllers = new Map<string, AbortController>();
@@ -2924,6 +2925,10 @@ if (!gotTheLock) {
 
   app.on('second-instance', (_event, commandLine, workingDirectory) => {
     console.debug('[Main] second-instance event', { commandLine, workingDirectory });
+    if (isDataMigrationRestoreInProgress) {
+      console.log('[DataMigration] ignored second-instance activation while restore is in progress.');
+      return;
+    }
 
     // Check for deep link in command line args (Windows/Linux)
     const deepLink = commandLine.find(arg => arg.startsWith('lobsterai://'));
@@ -4900,6 +4905,7 @@ if (!gotTheLock) {
 
   ipcMain.handle(DataMigrationIpc.Restore, async event => {
     const ownerWindow = BrowserWindow.fromWebContents(event.sender);
+    let rendererReleased = false;
     try {
       const openOptions = {
         title: t('dataMigrationRestoreDialogTitle'),
@@ -4918,8 +4924,11 @@ if (!gotTheLock) {
 
       const archivePath = openResult.filePaths[0];
       await inspectMigrationArchive(archivePath);
+      isDataMigrationRestoreInProgress = true;
       isCleanupInProgress = true;
       isQuitting = true;
+      await releaseRendererWindowsForDataMigrationRestore();
+      rendererReleased = true;
       await runAppCleanup('data migration restore');
       isCleanupFinished = true;
       isCleanupInProgress = false;
@@ -4930,7 +4939,7 @@ if (!gotTheLock) {
         archivePath,
       });
       const success = restoreResult?.status === DataMigrationRestoreStatus.Success;
-      if (success) {
+      if (rendererReleased) {
         setTimeout(() => {
           app.relaunch();
           app.exit(0);
@@ -4938,16 +4947,28 @@ if (!gotTheLock) {
       }
       return {
         success,
-        scheduledRestart: success,
+        scheduledRestart: rendererReleased,
         rollbackPath: restoreResult?.rollbackPath,
         error: success ? undefined : restoreResult?.error || 'Failed to import LobsterAI data backup',
       };
     } catch (error) {
       isCleanupInProgress = false;
+      const message = error instanceof Error ? error.message : 'Failed to import LobsterAI data backup';
       console.error('[DataMigration] restore scheduling failed:', error);
+      if (rendererReleased) {
+        dialog.showErrorBox(t('dataMigrationRestoreDialogTitle'), message);
+        setTimeout(() => {
+          app.relaunch();
+          app.exit(0);
+        }, 100);
+      } else {
+        isDataMigrationRestoreInProgress = false;
+        isQuitting = false;
+      }
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to import LobsterAI data backup',
+        scheduledRestart: rendererReleased,
+        error: message,
       };
     }
   });
@@ -9057,6 +9078,36 @@ if (!gotTheLock) {
   let isCleanupFinished = false;
   let isCleanupInProgress = false;
 
+  const releaseRendererWindowsForDataMigrationRestore = async (): Promise<void> => {
+    const windows = BrowserWindow.getAllWindows().filter(win => !win.isDestroyed());
+    if (windows.length === 0) {
+      return;
+    }
+
+    console.log(`[DataMigration] closing ${windows.length} renderer window(s) before restore.`);
+    await Promise.all(windows.map(win => new Promise<void>(resolve => {
+      let resolved = false;
+      let timeout: ReturnType<typeof setTimeout> | null = null;
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        if (timeout) clearTimeout(timeout);
+        resolve();
+      };
+      timeout = setTimeout(finish, 3_000);
+      win.once('closed', finish);
+      try {
+        win.destroy();
+      } catch (error) {
+        console.warn('[DataMigration] failed to destroy renderer window before restore:', error);
+        finish();
+      }
+    })));
+
+    // Give Chromium a short window to release LevelDB handles such as Local Storage on Windows.
+    await new Promise(resolve => { setTimeout(resolve, 500); });
+  };
+
   const runAppCleanup = async (reason = 'quit'): Promise<void> => {
     console.log(`[Main] App cleanup started for ${reason}`);
     destroyTray();
@@ -9694,6 +9745,9 @@ if (!gotTheLock) {
 
     // 在 macOS 上，当点击 dock 图标时显示已有窗口或重新创建
     app.on('activate', () => {
+      if (isDataMigrationRestoreInProgress) {
+        return;
+      }
       if (mainWindow && !mainWindow.isDestroyed()) {
         if (!mainWindow.isVisible()) mainWindow.show();
         if (!mainWindow.isFocused()) mainWindow.focus();
@@ -9710,6 +9764,9 @@ if (!gotTheLock) {
 
   // 当所有窗口关闭时退出应用
   app.on('window-all-closed', () => {
+    if (isDataMigrationRestoreInProgress) {
+      return;
+    }
     if (process.platform !== 'darwin') {
       app.quit();
     }
