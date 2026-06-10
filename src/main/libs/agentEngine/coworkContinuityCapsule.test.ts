@@ -5,6 +5,7 @@ import {
   buildCoworkContinuityCapsule,
   ContinuityCapsuleSource,
   formatCoworkContinuityCapsuleBridge,
+  formatCoworkMiniContinuityCapsuleBridge,
 } from './coworkContinuityCapsule';
 
 const message = (
@@ -171,4 +172,29 @@ test('formatCoworkContinuityCapsuleBridge produces bounded hidden bridge text', 
   expect(bridge).toContain('Recent user requests:');
   expect(bridge).toContain('Next steps:');
   expect(bridge.length).toBeLessThanOrEqual(4000);
+});
+
+test('formatCoworkMiniContinuityCapsuleBridge keeps only the compact follow-up fields', () => {
+  const capsule = buildCoworkContinuityCapsule({
+    sessionId: 'session-1',
+    source: ContinuityCapsuleSource.PostCompaction,
+    now: 1000,
+    messages: [
+      message('user', '继续优化 context compaction。'),
+      message('assistant', '决定保留 prompt 注入方式。Next step: run tests. touched src/main/libs/agentEngine/openclawRuntimeAdapter.ts'),
+    ],
+  });
+
+  const bridge = formatCoworkMiniContinuityCapsuleBridge({
+    ...capsule,
+    lastCompactedAt: 1000,
+  });
+
+  expect(bridge).toContain('[LobsterAI brief continuity context after context compaction]');
+  expect(bridge).toContain('Current objective:');
+  expect(bridge).toContain('Recent user requests:');
+  expect(bridge).toContain('Next steps:');
+  expect(bridge).not.toContain('Touched files:');
+  expect(bridge).not.toContain('src/main/libs/agentEngine/openclawRuntimeAdapter.ts');
+  expect(bridge.length).toBeLessThanOrEqual(800);
 });

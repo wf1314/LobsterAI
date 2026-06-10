@@ -61,8 +61,10 @@ import {
   buildCoworkContinuityCapsule,
   ContinuityCapsuleSource,
   formatCoworkContinuityCapsuleBridge,
+  formatCoworkMiniContinuityCapsuleBridge,
   type ContinuityCapsuleSource as ContinuityCapsuleSourceValue,
 } from './coworkContinuityCapsule';
+import { buildCoworkWorkspaceRehydrationBridge } from './coworkWorkspaceRehydration';
 import { SubagentTracker } from './subagentTracker';
 import type {
   CoworkContextUsage,
@@ -1484,6 +1486,8 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
   private readonly pendingTurns = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
   private readonly confirmationModeBySession = new Map<string, 'modal' | 'text'>();
   private readonly bridgedSessions = new Set<string>();
+  private readonly continuityFullBridgeCompactedAtBySession = new Map<string, number>();
+  private readonly workspaceRehydrationBridgeCompactedAtBySession = new Map<string, number>();
   private readonly lastSystemPromptBySession = new Map<string, string>();
   private readonly sessionModelPatchStateBySession = new Map<string, SessionModelPatchState>();
   private readonly sessionModelPatchQueue = new Map<string, Promise<void>>();
@@ -1668,18 +1672,56 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
       if (!capsule?.lastCompactedAt) {
         return '';
       }
-      const bridge = formatCoworkContinuityCapsuleBridge(capsule);
+      const shouldInjectFullBridge = this.continuityFullBridgeCompactedAtBySession.get(sessionId) !== capsule.lastCompactedAt;
+      const bridge = shouldInjectFullBridge
+        ? formatCoworkContinuityCapsuleBridge(capsule)
+        : formatCoworkMiniContinuityCapsuleBridge(capsule);
       if (!bridge.trim()) {
         return '';
       }
+      if (shouldInjectFullBridge) {
+        this.continuityFullBridgeCompactedAtBySession.set(sessionId, capsule.lastCompactedAt);
+      }
       console.debug(
         `[CoworkContinuityCapsule] injected capsule bridge for session ${sessionId}.`,
+        `Mode ${shouldInjectFullBridge ? 'full' : 'mini'}.`,
         `Revision ${capsule.revision}.`,
         `Bridge length ${bridge.length}.`,
       );
       return bridge;
     } catch (error) {
       console.warn(`[CoworkContinuityCapsule] failed to build capsule bridge for session ${sessionId}; continuing without it.`, error);
+      return '';
+    }
+  }
+
+  private async buildWorkspaceRehydrationBridge(sessionId: string): Promise<string> {
+    try {
+      if (typeof this.store.getSession !== 'function' || typeof this.store.getContinuityCapsule !== 'function') {
+        return '';
+      }
+      const session = this.store.getSession(sessionId);
+      const capsule = this.store.getContinuityCapsule(sessionId);
+      const compactedAt = capsule?.lastCompactedAt;
+      if (!compactedAt || this.workspaceRehydrationBridgeCompactedAtBySession.get(sessionId) === compactedAt) {
+        return '';
+      }
+      const bridge = await buildCoworkWorkspaceRehydrationBridge({
+        sessionId,
+        cwd: session?.cwd,
+        capsule,
+      });
+      this.workspaceRehydrationBridgeCompactedAtBySession.set(sessionId, compactedAt);
+      if (!bridge.trim()) {
+        return '';
+      }
+      console.debug(
+        `[CoworkWorkspaceRehydration] injected workspace bridge for session ${sessionId}.`,
+        `Bridge length ${bridge.length}.`,
+      );
+      return bridge;
+    } catch (error) {
+      console.warn(`[CoworkWorkspaceRehydration] failed to build workspace bridge for session ${sessionId}; continuing without it.`, error);
       return '';
     }
   }
@@ -3525,10 +3567,14 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
       );
     }
     const continuityCapsuleBridge = this.buildContinuityCapsuleBridge(sessionId);
+    const workspaceRehydrationBridge = await this.buildWorkspaceRehydrationBridge(sessionId);
 
     if (this.bridgedSessions.has(sessionId)) {
       if (continuityCapsuleBridge) {
         sections.push(continuityCapsuleBridge);
+      }
+      if (workspaceRehydrationBridge) {
+        sections.push(workspaceRehydrationBridge);
       }
       if (selectedTextSection) {
         sections.push(selectedTextSection);
@@ -3581,6 +3627,9 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
 
     if (continuityCapsuleBridge) {
       sections.push(continuityCapsuleBridge);
+    }
+    if (workspaceRehydrationBridge) {
+      sections.push(workspaceRehydrationBridge);
     }
     if (selectedTextSection) {
       sections.push(selectedTextSection);
@@ -7770,6 +7819,8 @@ export class OpenClawRuntimeAdapter extends EventEmitter implements CoworkRuntim
     // Clean up pending approvals, bridged state, confirmation mode
     this.clearPendingApprovalsBySession(sessionId);
     this.bridgedSessions.delete(sessionId);
+    this.continuityFullBridgeCompactedAtBySession.delete(sessionId);
+    this.workspaceRehydrationBridgeCompactedAtBySession.delete(sessionId);
     this.confirmationModeBySession.delete(sessionId);
     this.manuallyStoppedSessions.delete(sessionId);
     this.sessionModelPatchStateBySession.delete(sessionId);

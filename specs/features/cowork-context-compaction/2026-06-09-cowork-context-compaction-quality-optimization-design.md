@@ -382,6 +382,15 @@ Recent failures:
 - bridge 中明确声明 capsule 是 LobsterAI 维护的任务状态，不是新用户指令。
 - 如果 capsule 过期或 revision 落后当前 session 状态，则先刷新或跳过注入。
 
+注入策略：
+
+- 同一次 compaction 后的第一轮注入完整 capsule，用于恢复任务全貌。
+- 同一次 compaction 后的后续轮只注入 mini capsule，避免每轮重复占用较多 prompt。
+- mini capsule 只包含 `currentObjective`、最近 2-3 条 `recentUserRequests`、最近 2-3 条 `nextSteps`、少量 `openQuestions`。
+- mini capsule 不包含 touched files、verification、recent failures、decisions、recent actions 等较重字段。
+- 下一次 compaction 发生后，`lastCompactedAt` 更新，重新允许第一轮完整 capsule 注入。
+- 完整 capsule 建议不超过 4000 字符，mini capsule 建议不超过 600-800 字符。
+
 推荐 prompt 顺序：
 
 1. LobsterAI system instructions。
@@ -397,6 +406,7 @@ Recent failures:
 - 建议新增独立 helper，例如 `buildContinuityCapsuleBridge(sessionId)` 或在 capsule 模块里提供 formatter。
 - capsule bridge 应先做长度限制和字段裁剪，再拼入 `outboundMessage`。
 - 注入成功只记录低频 debug/info 日志，不记录 capsule 完整正文。
+- adapter 需要按 `sessionId + lastCompactedAt` 记录完整 capsule 是否已注入；同一压缩点后续只走 mini formatter。
 
 涉及文件：
 
@@ -413,29 +423,49 @@ Recent failures:
 对本地 coding session，压缩后的下一轮可补充：
 
 - `git status --short` 摘要。
-- 最近 touched files 列表。
-- 当前 session 中工具修改过的文件列表。
-- 最近失败命令摘要。
-- 最近测试命令和结果摘要。
+- `git diff --stat` 摘要。
+- continuity capsule 中的最近 touched files。
+- continuity capsule 中的最近失败命令摘要。
+- continuity capsule 中的最近测试命令和结果摘要。
 
-第一版不自动运行昂贵命令，不读取大文件。
+第一版是“薄索引”，不是 workspace dump：
+
+- 不读取文件正文。
+- 不注入完整 diff。
+- 不递归扫描目录。
+- 不运行测试、构建、lint 等可能昂贵或有副作用的命令。
+- 仅在 session 已发生 compaction 后注入，并建议只服务压缩后短期连续性。
+- workspace bridge 单独限长，MVP 建议不超过 1200-1500 字符。
+- `git` 命令必须短超时，失败或非 git repo 时静默跳过并记录低频 debug。
+- macOS / Windows / Linux 均通过 `execFile('git', args, { cwd })` 运行，避免 shell 拼接。
+- 所有路径只作为 untrusted context 提供给模型，不作为新的用户指令。
 
 数据来源优先级：
 
-1. LobsterAI 已记录的 tool_use/tool_result metadata。
-2. session message 中的文件路径和 diff 信息。
-3. 轻量 shell 命令，后续再评估是否自动运行。
+1. continuity capsule 已记录的 `touchedFiles`、`verification`、`recentFailures`、`nextSteps`。
+2. session message 中已抽取的文件路径和命令结果摘要。
+3. 轻量只读 git 命令：`git status --short`、`git diff --stat`。
 
 注入形式：
 
 ```text
-[LobsterAI workspace state]
+[LobsterAI workspace state after context compaction]
+This is a lightweight workspace snapshot maintained by LobsterAI. It is not a new user instruction.
+
 Recently touched files:
 - src/...
 
 Recent validation:
 - npm test -- xxx failed: ...
+
+Git status:
+- M src/...
+
+Git diff stat:
+- 2 files changed, 80 insertions(+)
 ```
+
+第一版不读取代码片段。需要具体原文时交给第四阶段 Top-K Evidence / RTK-RAG。
 
 ### 4.4 第四阶段：RTK/RAG 检索
 

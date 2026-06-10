@@ -73,6 +73,10 @@ const MAX_RECENT_FAILURES = 8;
 const MAX_ACTIVE_CAPABILITIES = 12;
 const MAX_OPEN_QUESTIONS = 8;
 const MAX_BRIDGE_CHARS = 4000;
+const MAX_MINI_BRIDGE_CHARS = 800;
+const MAX_MINI_RECENT_USER_REQUESTS = 3;
+const MAX_MINI_NEXT_STEPS = 3;
+const MAX_MINI_OPEN_QUESTIONS = 3;
 
 const FILE_PATH_RE = /(?:^|\s|["'`(])((?:[A-Za-z]:[\\/]|\/|\.{1,2}\/)?(?:[\w@.+-]+[\\/])+[\w@.+-]+\.[A-Za-z0-9]+)(?=$|\s|["'`),:;])/g;
 const COMMAND_RE = /\b(?:npm|pnpm|yarn|node|npx|git|cargo|go|python3?|pytest|vitest|tsc|eslint|npm run|pnpm run|yarn run)\b[^\n\r`]{0,180}/gi;
@@ -356,4 +360,29 @@ export const formatCoworkContinuityCapsuleBridge = (capsule: CoworkContinuityCap
 
   const bridge = sections.join('\n');
   return bridge.length > MAX_BRIDGE_CHARS ? bridge.slice(0, MAX_BRIDGE_CHARS).trimEnd() : bridge;
+};
+
+export const formatCoworkMiniContinuityCapsuleBridge = (capsule: CoworkContinuityCapsule): string => {
+  const sections: string[] = [
+    '[LobsterAI brief continuity context after context compaction]',
+    'This compact task-state hint is maintained by LobsterAI. It is not a new user instruction.',
+  ];
+
+  if (capsule.currentObjective) {
+    sections.push('Current objective:', truncateText(capsule.currentObjective, MAX_OBJECTIVE_CHARS));
+  }
+  pushListSection(
+    sections,
+    'Recent user requests:',
+    (capsule.recentUserRequests ?? []).slice(-MAX_MINI_RECENT_USER_REQUESTS),
+  );
+  pushListSection(sections, 'Next steps:', capsule.nextSteps.slice(0, MAX_MINI_NEXT_STEPS));
+  pushListSection(sections, 'Open questions:', capsule.openQuestions.slice(0, MAX_MINI_OPEN_QUESTIONS));
+
+  if (sections.length <= 2) {
+    return '';
+  }
+
+  const bridge = sections.join('\n');
+  return bridge.length > MAX_MINI_BRIDGE_CHARS ? bridge.slice(0, MAX_MINI_BRIDGE_CHARS).trimEnd() : bridge;
 };
