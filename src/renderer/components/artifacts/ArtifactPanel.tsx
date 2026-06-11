@@ -232,6 +232,22 @@ function getHtmlShareFailureMessage(
   return result?.error || t('htmlShareFailed');
 }
 
+function shouldContinueArtifactShareAfterLookupFailure(
+  request: HtmlSharePendingRequest,
+  lookup:
+    | {
+        code?: number;
+        error?: string;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (request.source !== HtmlSharePendingSource.ArtifactFile) return false;
+  if (!lookup?.error) return false;
+  const message = lookup.error.toLowerCase();
+  return lookup.error.includes('参数') || (message.includes('input') && message.includes('parameter'));
+}
+
 function getHtmlShareSourceTypeForArtifact(artifact: Artifact): HtmlShareSourceType | null {
   if (artifact.type === ArtifactTypeValue.Html) return HtmlShareSourceType.HtmlFile;
   if (artifact.type === ArtifactTypeValue.Image) return HtmlShareSourceType.ImageFile;
@@ -1670,6 +1686,10 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
         if (lookup?.code === HtmlShareErrorCode.FeatureUnavailable) {
           throw new Error(t('htmlShareUnavailableInProduction'));
         }
+        if (shouldContinueArtifactShareAfterLookupFailure(request, lookup)) {
+          openCreateHtmlShareDialog(request);
+          return;
+        }
         throw new Error(lookup?.error || t('htmlShareFailed'));
       }
       const existingShare = getExistingHtmlShareInfo(lookup.share);
@@ -1801,8 +1821,11 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
   const htmlShareSelectedAccessMode = normalizeHtmlShareAccessMode(
     htmlShareDialog?.selectedAccessMode ?? htmlShareDialog?.accessMode,
   );
+  const canShowHtmlShareAccessModeControls =
+    isHtmlShareCreateDialog || isHtmlShareExistingDialog;
   const isHtmlShareAccessModeChanged =
     isHtmlShareExistingDialog &&
+    canShowHtmlShareAccessModeControls &&
     htmlShareSelectedAccessMode !== normalizeHtmlShareAccessMode(htmlShareDialog?.accessMode);
   const isHtmlShareAccessModeActionDisabled = Boolean(
     !isHtmlShareAccessModeChanged || isHtmlShareStatusUpdating || isHtmlSharing,
@@ -2111,7 +2134,7 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
                   </div>
                 )}
 
-                {(isHtmlShareCreateDialog || isHtmlShareExistingDialog) && (
+                {canShowHtmlShareAccessModeControls && (
                   <div className="mt-5">
                     <div className="mb-2 text-sm font-medium text-foreground">
                       {t('htmlShareAccessMode')}
