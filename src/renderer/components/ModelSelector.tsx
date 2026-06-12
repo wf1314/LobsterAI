@@ -338,7 +338,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       return;
     }
     if (controlled) {
-      onChange(model, { group: visibleGroup });
+      onChange(model, { group: getModelGroup(model) ?? visibleGroup });
     } else if (model) {
       dispatch(setSelectedModel({ agentId: currentAgentId, model }));
     }

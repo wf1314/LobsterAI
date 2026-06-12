@@ -79,6 +79,18 @@ import { useCoworkVoiceInput } from './voiceInput/useCoworkVoiceInput';
 import VoiceInputButton from './voiceInput/VoiceInputButton';
 import VoiceInputRecordingStatus from './voiceInput/VoiceInputRecordingStatus';
 
+const logPromptModelSelection = (
+  level: 'debug' | 'warn',
+  message: string,
+): void => {
+  if (level === 'warn') {
+    console.warn(`[CoworkPromptInput] ${message}`);
+  } else {
+    console.debug(`[CoworkPromptInput] ${message}`);
+  }
+  window.electron?.log?.fromRenderer?.(level, 'CoworkPromptInput', message);
+};
+
 // CoworkAttachment is aliased from the Redux-persisted DraftAttachment type
 // so that attachment state survives view switches (cowork ↔ skills, etc.)
 type CoworkAttachment = DraftAttachment;
@@ -1382,7 +1394,7 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
         disabled={isPatchingModel || isPersistingAgentModel}
         value={agentModelIsInvalid && currentSession?.modelOverride
           ? { id: '__invalid__', name: currentSession.modelOverride.split('/').pop() || currentSession.modelOverride } as Model
-          : agentSelectedModel}
+          : effectiveSelectedModel}
         onChange={async (nextModel, meta: ModelSelectorChangeMeta) => {
           if (isPatchingModel || isPersistingAgentModel) return;
           if (!nextModel) return;
@@ -1402,8 +1414,9 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
               : '';
 
             setIsPatchingModel(true);
-            console.debug(
-              `[CoworkPromptInput] switching session ${sessionId} to ${modelRef}; selectorGroup=${meta.group} serverModel=${selectedModel.isServerModel === true}`,
+            logPromptModelSelection(
+              'debug',
+              `switching session ${sessionId} to ${modelRef}; selector group is ${meta.group}; server model is ${selectedModel.isServerModel === true}`,
             );
             dispatch(updateCurrentSessionModelOverride({ sessionId, modelOverride: modelRef }));
 
@@ -1416,14 +1429,14 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
                   sessionId,
                   modelOverride: previousModelOverride,
                 }));
-                console.warn(`[CoworkPromptInput] model switch for session ${sessionId} returned no session`);
+                logPromptModelSelection('warn', `model switch for session ${sessionId} returned no session`);
                 window.dispatchEvent(new CustomEvent('app:showToast', {
                   detail: i18nService.t('coworkModelSwitchFailed'),
                 }));
                 return;
               }
 
-              console.debug(`[CoworkPromptInput] switched session ${sessionId} to ${patchedSession.modelOverride || modelRef}`);
+              logPromptModelSelection('debug', `switched session ${sessionId} to ${patchedSession.modelOverride || modelRef}`);
               if (currentAgent && agentModelIsInvalid) {
                 void agentService.updateAgent(currentAgent.id, { model: modelRef });
               }
@@ -1435,6 +1448,7 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
                   modelOverride: previousModelOverride,
                 }));
                 console.warn(`[CoworkPromptInput] model switch for session ${sessionId} failed:`, error);
+                window.electron?.log?.fromRenderer?.('warn', 'CoworkPromptInput', `model switch for session ${sessionId} failed`);
                 window.dispatchEvent(new CustomEvent('app:showToast', {
                   detail: i18nService.t('coworkModelSwitchFailed'),
                 }));
@@ -1446,6 +1460,10 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
             }
             return;
           }
+          logPromptModelSelection(
+            'debug',
+            `persisting agent ${currentAgentId} model ${modelRef}; selector group is ${meta.group}; server model is ${selectedModel.isServerModel === true}`,
+          );
           await persistAgentModelSelection(selectedModel);
         }}
       />
