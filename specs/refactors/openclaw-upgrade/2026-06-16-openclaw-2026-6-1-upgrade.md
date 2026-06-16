@@ -47,6 +47,7 @@ scripts/patches/v2026.6.1/
 
 ```text
 openclaw-cron-skip-missed-jobs.patch
+openclaw-chat-send-cwd-decoupling.patch
 openclaw-im-bound-agent-run-cwd.patch
 ```
 
@@ -55,6 +56,7 @@ openclaw-im-bound-agent-run-cwd.patch
 | 字段 | 所属 patch | 作用 |
 |------|------------|------|
 | `cron.skipMissedJobs` | `openclaw-cron-skip-missed-jobs.patch` | 启动时跳过离线期间错过的定时任务，不进行 catch-up replay |
+| `chat.send.cwd` | `openclaw-chat-send-cwd-decoupling.patch` | 允许 LobsterAI 在 `chat.send` 请求中携带业务工作目录，并继续传递给 agent run |
 | `agents.defaults.cwd` / `agents.list[].cwd` | `openclaw-im-bound-agent-run-cwd.patch` | 让 agent run 使用 LobsterAI 配置的业务工作目录，而不是只使用 OpenClaw workspace |
 
 ### 2.3 已补充的 LobsterAI 侧测试
@@ -62,7 +64,7 @@ openclaw-im-bound-agent-run-cwd.patch
 | 测试文件 | 覆盖内容 |
 |----------|----------|
 | `src/main/libs/openclawConfigSync.runtime.test.ts` | 验证配置同步仍会写出 patch 依赖字段：`cron.skipMissedJobs`、`agents.defaults.cwd`、`agents.list[].cwd` |
-| `src/main/libs/openclawPatches.test.ts` | 验证当前 `package.json` pinned 的 OpenClaw 版本目录下存在必要 runtime patch |
+| `src/main/libs/openclawPatches/` | 验证当前 `package.json` pinned 的 OpenClaw 版本目录下存在必要 runtime patch；按 patch 拆分测试文件 |
 
 ## 3. Patch 迁移状态
 
@@ -81,7 +83,7 @@ openclaw-im-bound-agent-run-cwd.patch
 | `openclaw-aborted-tool-loop-breaker.patch` | 待处理 | 尚未评估；需确认 6.1 是否仍存在 aborted tool loop 问题 |
 | `openclaw-browser-blocked-hostnames.patch` | 待处理 | 尚未评估；需确认 6.1 浏览器访问限制逻辑是否已覆盖 LobsterAI 需求 |
 | `openclaw-browser-duplicate-launch.patch` | 待处理 | 尚未评估；需确认 6.1 是否仍会重复拉起浏览器进程 |
-| `openclaw-chat-send-cwd-decoupling.patch` | 待处理 | 已阅读参考，但尚未迁移；需单独判断是否仍需要完整迁移 workspace/cwd 解耦逻辑 |
+| `openclaw-chat-send-cwd-decoupling.patch` | 已迁移 | 已迁移到 `v2026.6.1`；6.1 将协议 schema 移至 `packages/gateway-protocol`，本次适配让 `ChatSendParamsSchema` 接受 `cwd`，并由 `chat.send` handler 传入 `replyOptions.cwd` |
 | `openclaw-chat-send-image-attachment-30mb.patch` | 待处理 | 尚未评估；需确认 6.1 对 chat.send 图片附件大小限制是否仍需放宽 |
 | `openclaw-codex-use-native-transport.patch` | 待处理 | 尚未评估；需确认 6.1 Codex transport 实现是否仍需 LobsterAI 定制 |
 | `openclaw-cron-skip-missed-jobs.patch` | 已迁移 | 已迁移到 `v2026.6.1`；让 schema 和 cron runtime 支持 `cron.skipMissedJobs` |
@@ -113,9 +115,10 @@ openclaw-im-bound-agent-run-cwd.patch
 2. 调整 Node 版本要求为 `>=24.15.0 <25`。
 3. 迁移 `openclaw-cron-skip-missed-jobs.patch`。
 4. 迁移 `openclaw-im-bound-agent-run-cwd.patch`。
-5. 在 LobsterAI 侧补充 patch 存在性和配置输出测试。
-6. 修复 runtime 构建复用时对残缺产物的误判。
-7. 重新构建 host runtime，确认 `node_modules`、`gateway.asar`、`dist/control-ui/index.html` 都存在。
+5. 迁移 `openclaw-chat-send-cwd-decoupling.patch`，修复 `chat.send` 携带 `cwd` 时被协议校验拒绝的问题。
+6. 在 LobsterAI 侧补充 patch 存在性和配置输出测试。
+7. 修复 runtime 构建复用时对残缺产物的误判。
+8. 重新构建 host runtime，确认 `node_modules`、`gateway.asar`、`dist/control-ui/index.html` 都存在。
 
 ### 4.2 待处理
 
@@ -129,7 +132,7 @@ openclaw-im-bound-agent-run-cwd.patch
 ```bash
 npm run openclaw:patch
 npm run openclaw:runtime:host
-npx vitest run src/main/libs/openclawPatches.test.ts src/main/libs/openclawConfigSync.runtime.test.ts
+npx vitest run src/main/libs/openclawPatches src/main/libs/openclawConfigSync.runtime.test.ts
 npm run build
 ```
 
@@ -144,7 +147,7 @@ npm run build
 | `scripts/build-openclaw-runtime.sh` | runtime 构建与完整性检查 |
 | `src/main/libs/openclawConfigSync.ts` | LobsterAI 生成 OpenClaw 配置的核心逻辑 |
 | `src/main/libs/openclawConfigSync.runtime.test.ts` | 配置输出测试 |
-| `src/main/libs/openclawPatches.test.ts` | pinned OpenClaw 版本 patch 覆盖测试 |
+| `src/main/libs/openclawPatches/` | pinned OpenClaw 版本 patch 覆盖测试 |
 
 ## 6. 验证计划
 
@@ -153,7 +156,7 @@ npm run build
 ```bash
 npm run openclaw:patch
 npm run openclaw:runtime:host
-npx vitest run src/main/libs/openclawPatches.test.ts src/main/libs/openclawConfigSync.runtime.test.ts
+npx vitest run src/main/libs/openclawPatches src/main/libs/openclawConfigSync.runtime.test.ts
 npm run build
 ```
 
@@ -163,4 +166,3 @@ npm run build
 2. `npm run openclaw:runtime:host`：确认 runtime 可完整生成。
 3. 针对 patch 行为补 LobsterAI 侧测试或 OpenClaw 侧临时验证。
 4. `npm run build`：确认 LobsterAI TypeScript/Vite 构建仍通过。
-
