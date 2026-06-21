@@ -1,7 +1,9 @@
+import { PLAN_MODE_PROMPT_MARKER } from '../../../shared/cowork/planMode';
+
 const normalizePromptPart = (value?: string): string => value?.trim() ?? '';
 
 export const buildPlanModeSystemPrompt = (): string => [
-  '# Plan Mode',
+  PLAN_MODE_PROMPT_MARKER,
   '',
   'The user enabled Plan Mode for this turn. Work with the user to produce a decision-complete implementation plan before coding.',
   '',

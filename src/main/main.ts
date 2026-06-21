@@ -58,6 +58,7 @@ import {
   formatCoworkImageAttachmentLimit,
   validateCoworkImageAttachmentSize,
 } from '../shared/cowork/imageAttachments';
+import { containsPlanModePrompt } from '../shared/cowork/planMode';
 import {
   type CoworkSelectedTextSnippet,
   normalizeCoworkSelectedTextSnippets,
@@ -2744,7 +2745,12 @@ const refreshImSessionWorkingDirectoriesForAgent = (agentId: string): number => 
 };
 
 function mergeCoworkSystemPrompt(systemPrompt?: string): string | undefined {
-  const sections = [buildScheduledTaskEnginePrompt(), systemPrompt?.trim() || ''].filter(Boolean);
+  const scheduledTaskPrompt = buildScheduledTaskEnginePrompt();
+  const normalizedSystemPrompt = systemPrompt?.trim() || '';
+  if (normalizedSystemPrompt && normalizedSystemPrompt.includes(scheduledTaskPrompt)) {
+    return normalizedSystemPrompt;
+  }
+  const sections = [scheduledTaskPrompt, normalizedSystemPrompt].filter(Boolean);
   return sections.length > 0 ? sections.join('\n\n') : undefined;
 }
 
@@ -5685,6 +5691,9 @@ if (!gotTheLock) {
         const coworkStoreInstance = getCoworkStore();
         const config = coworkStoreInstance.getConfig();
         const systemPrompt = mergeCoworkSystemPrompt(options.systemPrompt ?? config.systemPrompt);
+        const persistedSystemPrompt = containsPlanModePrompt(systemPrompt)
+          ? mergeCoworkSystemPrompt(config.systemPrompt)
+          : systemPrompt;
         const selectedTaskDirectory = resolveSessionWorkingDirectory({
           cwd: options.cwd,
           agentId: options.agentId,
@@ -5722,7 +5731,7 @@ if (!gotTheLock) {
         const session = coworkStoreInstance.createSession(
           title,
           taskWorkingDirectory,
-          systemPrompt,
+          persistedSystemPrompt,
           config.executionMode || 'local',
           runtimeSkillIds || [],
           options.agentId || 'main',
@@ -5875,7 +5884,22 @@ if (!gotTheLock) {
         }
 
         const runtime = getCoworkEngineRouter();
-        const existingSession = getCoworkStore().getSession(options.sessionId);
+        const coworkStoreInstance = getCoworkStore();
+        const existingSession = coworkStoreInstance.getSession(options.sessionId);
+        const config = coworkStoreInstance.getConfig();
+        const hasLegacyPersistedPlanMode = containsPlanModePrompt(existingSession?.systemPrompt);
+        const continuationSystemPrompt = mergeCoworkSystemPrompt(
+          options.systemPrompt
+            ?? (hasLegacyPersistedPlanMode ? config.systemPrompt : existingSession?.systemPrompt),
+        );
+        if (hasLegacyPersistedPlanMode) {
+          coworkStoreInstance.updateSession(options.sessionId, {
+            systemPrompt: mergeCoworkSystemPrompt(config.systemPrompt) ?? '',
+          });
+          console.log(
+            `[Cowork] removed a legacy persisted plan mode prompt from session ${options.sessionId}.`,
+          );
+        }
         const selectedTextSnippets = normalizeSelectedTextSnippetsForIpc(options.selectedTextSnippets);
         if (selectedTextSnippets.length > 0) {
           console.log(
@@ -5923,9 +5947,7 @@ if (!gotTheLock) {
         );
         runtime
           .continueSession(options.sessionId, options.prompt, {
-            systemPrompt: mergeCoworkSystemPrompt(
-              options.systemPrompt ?? existingSession?.systemPrompt,
-            ),
+            systemPrompt: continuationSystemPrompt,
             skillIds: options.runtimeSkillIds ?? options.activeSkillIds,
             messageSkillIds: options.activeSkillIds,
             kitIds: options.kitIds,

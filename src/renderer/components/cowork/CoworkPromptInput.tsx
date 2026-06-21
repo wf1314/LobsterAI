@@ -10,6 +10,7 @@ import {
   formatCoworkImageAttachmentLimit,
   validateCoworkImageAttachmentSize,
 } from '../../../shared/cowork/imageAttachments';
+import { isPlanImplementationApproval } from '../../../shared/cowork/planMode';
 import type { CoworkSelectedTextSnippet } from '../../../shared/cowork/selectedText';
 import { agentService } from '../../services/agent';
 import { configService } from '../../services/config';
@@ -828,6 +829,13 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
     if ((!trimmedValue && attachments.length === 0) || disabled || isPatchingModel) return;
     setShowFolderRequiredWarning(false);
 
+    const exitsPlanModeForImplementation = isPlanMode
+      && isPlanImplementationApproval(trimmedValue);
+    const effectivePlanMode = isPlanMode && !exitsPlanModeForImplementation;
+    const effectiveCollaborationMode = effectivePlanMode
+      ? CoworkCollaborationMode.Plan
+      : CoworkCollaborationMode.Default;
+
     const accessPrompt = resolveSubmitModelAccessPrompt();
     if (accessPrompt) {
       setModelAccessPrompt(accessPrompt);
@@ -842,13 +850,13 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
       .map(id => skills.find(s => s.id === id))
       .filter((s): s is Skill => s !== undefined);
     const kitPrompt = buildSelectedKitContextPrompt(activeKitIds, marketplaceKits, installedKits);
-    const skillPrompt = isPlanMode
+    const skillPrompt = effectivePlanMode
       ? buildPlanModeSystemPrompt()
       : [
         kitPrompt,
         buildSelectedSkillRoutingPrompt(activeSkills),
       ].filter(Boolean).join('\n\n') || undefined;
-    if (isPlanMode) {
+    if (effectivePlanMode) {
       logPromptModelSelection(
         'debug',
         `submitting prompt in plan mode for draft ${draftKey}; selected skill routing suppressed`
@@ -984,16 +992,22 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
       imageAtts.length > 0 ? imageAtts : undefined,
       mediaReferences.length > 0 ? mediaReferences : undefined,
       selectedTextSnippets.length > 0 ? selectedTextSnippets : undefined,
-      draftCollaborationMode,
+      effectiveCollaborationMode,
     );
     if (result === false) return;
+    if (exitsPlanModeForImplementation) {
+      logPromptModelSelection(
+        'debug',
+        `exited plan mode after submitting approved implementation in draft ${draftKey}`,
+      );
+    }
     setValue('');
     dispatch(setDraftPrompt({ sessionId: draftKey, draft: '' }));
     dispatch(clearDraftAttachments(draftKey));
     dispatch(clearDraftSelectedTextSnippets(draftKey));
     dispatch(setDraftCollaborationMode({ draftKey, mode: CoworkCollaborationMode.Default }));
     setImageVisionHint(false);
-  }, [value, isVoiceRecording, stopVoiceRecordingAndRecognize, isStreaming, disabled, isPatchingModel, onSubmit, activeSkillIds, skills, activeKitIds, marketplaceKits, installedKits, attachments, showFolderSelector, workingDirectory, dispatch, draftKey, effectiveSelectedModel?.id, modelSupportsImage, mediaLabels, selectedTextSnippets, resolveSubmitModelAccessPrompt, isPlanMode, draftCollaborationMode]);
+  }, [value, isVoiceRecording, stopVoiceRecordingAndRecognize, isStreaming, disabled, isPatchingModel, onSubmit, activeSkillIds, skills, activeKitIds, marketplaceKits, installedKits, attachments, showFolderSelector, workingDirectory, dispatch, draftKey, effectiveSelectedModel?.id, modelSupportsImage, mediaLabels, selectedTextSnippets, resolveSubmitModelAccessPrompt, isPlanMode]);
 
   const handleSelectSkill = useCallback((skill: Skill) => {
     dispatch(toggleActiveSkill(skill.id));

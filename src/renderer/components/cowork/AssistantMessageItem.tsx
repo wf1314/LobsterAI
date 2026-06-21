@@ -1,72 +1,21 @@
 import React, { useCallback, useState } from 'react';
 
-import { copyTextToClipboard } from '../../services/clipboard';
 import { i18nService } from '../../services/i18n';
 import type { CoworkMessage, CoworkMessageMetadata } from '../../types/cowork';
 import { formatMessageDateTime } from '../../utils/tokenFormat';
-import MessageCopyIcon from '../icons/MessageCopyIcon';
 import MessageForkIcon from '../icons/MessageForkIcon';
 import MarkdownContent from '../MarkdownContent';
 import ImagePreviewModal, { type ImagePreviewSource } from './ImagePreviewModal';
+import { MessageCopyButton } from './MessageActionButton';
 import {
   getMessageModelLabel,
   MEDIA_TOKEN_DISPLAY_RE,
   messageMetaClassName,
 } from './messageDisplayUtils';
+import ProposedPlanBlock from './ProposedPlanBlock';
 import { parseProposedPlanBlock } from './proposedPlanParser';
 
-// ── CopyButton ───────────────────────────────────────────────────────────────
-
-const CopyButton: React.FC<{
-  content: string;
-  visible: boolean;
-}> = ({ content, visible }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const copiedToClipboard = await copyTextToClipboard(content);
-    if (copiedToClipboard) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className={`p-1.5 rounded-md hover:bg-surface-raised transition-all duration-200 ${
-        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}
-      tabIndex={visible ? 0 : -1}
-      title={i18nService.t('copyToClipboard')}
-      aria-label={i18nService.t('copyToClipboard')}
-    >
-      {copied ? (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="w-4 h-4 text-green-500"
-          aria-hidden="true"
-        >
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-      ) : (
-        <MessageCopyIcon className="w-4 h-4 text-[var(--icon-secondary)]" />
-      )}
-    </button>
-  );
-};
-
-export { CopyButton };
+export { MessageCopyButton as CopyButton } from './MessageActionButton';
 
 const ForkButton: React.FC<{
   visible: boolean;
@@ -85,7 +34,7 @@ const ForkButton: React.FC<{
     title={i18nService.t('coworkForkFromMessage')}
     aria-label={i18nService.t('coworkForkFromMessage')}
   >
-    <MessageForkIcon className="w-4 h-4 text-[var(--icon-secondary)]" />
+    <MessageForkIcon className="h-4 w-4 text-secondary" />
   </button>
 );
 
@@ -114,7 +63,7 @@ const AssistantMessageItem: React.FC<{
   const copyContent = [
     displayContent,
     proposedPlan.planText,
-  ].filter((part): part is string => !!part).join('\n\n');
+  ].filter((part): part is string => Boolean(part)).join('\n\n');
   const modelLabel = getMessageModelLabel(turnMetadata);
   const handleBlur = useCallback((event: React.FocusEvent<HTMLDivElement>) => {
     const nextTarget = event.relatedTarget;
@@ -140,32 +89,43 @@ const AssistantMessageItem: React.FC<{
     >
       <div className="text-foreground">
         {displayContent && (
-          <MarkdownContent
-            content={displayContent}
-            className="prose dark:prose-invert max-w-none"
-            resolveLocalFilePath={resolveLocalFilePath}
-            showRevealInFolderAction
-            onImageClick={setExpandedImage}
-          />
+          <div>
+            <MarkdownContent
+              content={displayContent}
+              className="prose dark:prose-invert max-w-none"
+              resolveLocalFilePath={resolveLocalFilePath}
+              showRevealInFolderAction
+              onImageClick={setExpandedImage}
+            />
+            {showCopyButton && (
+              <div className={messageMetaClassName(isHovered)} aria-hidden={!isHovered}>
+                <span>{formatMessageDateTime(message.timestamp)}</span>
+                {modelLabel && <span>{modelLabel}</span>}
+                {onFork && (
+                  <ForkButton
+                    visible={isHovered}
+                    onFork={() => onFork(message.id)}
+                  />
+                )}
+                <MessageCopyButton
+                  content={copyContent}
+                  visible={isHovered}
+                />
+              </div>
+            )}
+          </div>
         )}
         {proposedPlan.planText && (
-          <div className={displayContent ? 'mt-3' : undefined}>
-            <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
-              <div className="mb-2 text-xs font-medium uppercase text-primary">
-                {i18nService.t('coworkProposedPlanTitle')}
-              </div>
-              <MarkdownContent
-                content={proposedPlan.planText}
-                className="prose dark:prose-invert max-w-none"
-                resolveLocalFilePath={resolveLocalFilePath}
-                showRevealInFolderAction
-                onImageClick={setExpandedImage}
-              />
-            </div>
+          <div className={displayContent ? 'mt-4' : undefined}>
+            <ProposedPlanBlock
+              content={proposedPlan.planText}
+              resolveLocalFilePath={resolveLocalFilePath}
+              onImageClick={setExpandedImage}
+            />
           </div>
         )}
       </div>
-      {showCopyButton && (
+      {showCopyButton && !displayContent && (
         <div className={messageMetaClassName(isHovered)} aria-hidden={!isHovered}>
           <span>{formatMessageDateTime(message.timestamp)}</span>
           {modelLabel && <span>{modelLabel}</span>}
@@ -175,7 +135,7 @@ const AssistantMessageItem: React.FC<{
               onFork={() => onFork(message.id)}
             />
           )}
-          <CopyButton
+          <MessageCopyButton
             content={copyContent}
             visible={isHovered}
           />
