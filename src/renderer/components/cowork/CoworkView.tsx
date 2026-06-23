@@ -694,8 +694,8 @@ const CoworkView: React.FC<CoworkViewProps> = ({ onRequestAppSettings, onShowSki
           <div className="w-full max-w-3xl text-center">
             <img
               src="logo.png"
-              alt="LobsterAI"
-              className="mx-auto h-12 w-12 animate-fade-in-up"
+              alt="产业通"
+              className="mx-auto h-8 w-auto animate-fade-in-up"
             />
             <h2
               className="mt-4 text-[24px] font-semibold leading-8 tracking-normal text-foreground animate-fade-in-up"

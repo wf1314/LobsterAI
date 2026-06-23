@@ -26,7 +26,6 @@ import { SkillsView } from './components/skills';
 import Toast from './components/Toast';
 import AppUpdateBadge from './components/update/AppUpdateBadge';
 import AppUpdateModal from './components/update/AppUpdateModal';
-import WelcomeDialog from './components/WelcomeDialog';
 import WindowTitleBar from './components/window/WindowTitleBar';
 import { defaultConfig, getProviderDisplayName, ShortcutAction } from './config';
 import type { ApiConfig } from './services/api';
@@ -83,7 +82,7 @@ const SETTINGS_TAB_SHORTCUT_ACTIONS: Array<{
   { action: ShortcutAction.OpenSettingsBrowser, initialTab: 'browserWebAccess' },
   { action: ShortcutAction.OpenSettingsEmail, initialTab: 'email' },
   { action: ShortcutAction.OpenSettingsMemory, initialTab: 'coworkMemory' },
-  { action: ShortcutAction.OpenSettingsDreaming, initialTab: 'coworkDreaming' },
+  { action: ShortcutAction.OpenSettingsDreaming, initialTab: 'coworkMemory' },
   { action: ShortcutAction.OpenSettingsPlugins, initialTab: 'plugins' },
   { action: ShortcutAction.OpenSettingsShortcuts, initialTab: 'shortcuts' },
   { action: ShortcutAction.OpenSettingsAbout, initialTab: 'about' },
@@ -113,7 +112,6 @@ const App: React.FC = () => {
   });
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [privacyAgreed, setPrivacyAgreed] = useState<boolean | null>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
   const [enterpriseConfig, setEnterpriseConfig] = useState<{
     ui?: Record<string, 'hide' | 'disable' | 'readonly'>;
     disableUpdate?: boolean;
@@ -529,23 +527,12 @@ const App: React.FC = () => {
   const handlePrivacyAccept = useCallback(async () => {
     await window.electron.store.set('privacy_agreed', true);
     setPrivacyAgreed(true);
-    setShowWelcome(true);
   }, []);
 
   const handlePrivacyReject = useCallback(() => {
     // 立刻隐藏窗口，让用户感觉立即关闭
     window.electron.window.close();
   }, []);
-
-  const handleWelcomeClose = useCallback(() => setShowWelcome(false), []);
-  const handleWelcomeLogin = useCallback(async () => {
-    setShowWelcome(false);
-    await authService.login();
-  }, []);
-  const handleWelcomeCustomModel = useCallback(() => {
-    setShowWelcome(false);
-    handleShowSettings({ initialTab: 'model' });
-  }, [handleShowSettings]);
 
   const handlePermissionResponse = useCallback(async (result: CoworkPermissionResult) => {
     if (!pendingPermission) return;
@@ -1038,7 +1025,7 @@ const App: React.FC = () => {
               />
             ) : (
               <CoworkView
-                onRequestAppSettings={privacyAgreed === true && !showWelcome ? handleShowSettings : undefined}
+                onRequestAppSettings={privacyAgreed === true ? handleShowSettings : undefined}
                 onShowSkills={handleShowSkills}
                 onShowKits={handleShowKits}
                 isSidebarCollapsed={isSidebarCollapsed}
@@ -1080,13 +1067,6 @@ const App: React.FC = () => {
         <PrivacyDialog
           onAccept={handlePrivacyAccept}
           onReject={handlePrivacyReject}
-        />
-      )}
-      {showWelcome && (
-        <WelcomeDialog
-          onLogin={handleWelcomeLogin}
-          onCustomModel={handleWelcomeCustomModel}
-          onClose={handleWelcomeClose}
         />
       )}
     </div>

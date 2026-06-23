@@ -2,6 +2,8 @@ import fs from 'fs';
 import { pipeline } from 'stream/promises';
 import yazl from 'yazl';
 
+import { APP_ID } from '../appConstants';
+
 export type LogArchiveEntry = {
   archiveName: string;
   filePath: string;
@@ -17,6 +19,14 @@ export type ExportLogsZipResult = {
 };
 
 const EXPORT_TIMEOUT_MS = 30_000;
+
+const padTwoDigits = (value: number): string => value.toString().padStart(2, '0');
+
+export const buildLogExportFileName = (date = new Date()): string => {
+  const datePart = `${date.getFullYear()}${padTwoDigits(date.getMonth() + 1)}${padTwoDigits(date.getDate())}`;
+  const timePart = `${padTwoDigits(date.getHours())}${padTwoDigits(date.getMinutes())}${padTwoDigits(date.getSeconds())}`;
+  return `${APP_ID}-logs-${datePart}-${timePart}.zip`;
+};
 
 export async function exportLogsZip(input: ExportLogsZipInput): Promise<ExportLogsZipResult> {
   const zipFile = new yazl.ZipFile();

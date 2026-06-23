@@ -9,14 +9,14 @@ import {
   type DataMigrationLastRestoreResult,
   DataMigrationRestoreStatus,
 } from '../../../shared/dataMigration/constants';
-import { APP_NAME, DB_FILENAME } from '../../appConstants';
+import { APP_ID, APP_NAME, DB_FILENAME } from '../../appConstants';
 import { SQLITE_BACKUP_DIR_NAME } from '../sqliteBackup/constants';
 
 const CURRENT_ARCHIVE_ROOT = APP_NAME;
-const MANIFEST_FILE_NAME = '.lobsterai-migration.json';
-const PENDING_RESTORE_FILE_NAME = '.lobsterai-data-migration-restore-pending.json';
-const LAST_RESTORE_RESULT_FILE_NAME = '.lobsterai-data-migration-restore-result.json';
-const ARCHIVE_FORMAT = 'lobsterai-data-migration';
+const MANIFEST_FILE_NAME = '.industryai-migration.json';
+const PENDING_RESTORE_FILE_NAME = '.industryai-data-migration-restore-pending.json';
+const LAST_RESTORE_RESULT_FILE_NAME = '.industryai-data-migration-restore-result.json';
+const ARCHIVE_FORMAT = 'industryai-data-migration';
 const ARCHIVE_FORMAT_VERSION = 1;
 const SQLITE_BACKUP_TOP_LEVEL_DIR_NAME = SQLITE_BACKUP_DIR_NAME.split('/')[0] || 'backups';
 const SQLITE_RESTORE_FILE_NAMES = [
@@ -274,10 +274,10 @@ export const formatDataMigrationTimestamp = (date = new Date()): string => (
 );
 
 export const buildDataMigrationBackupFileName = (date = new Date()): string =>
-  `lobsterai-backup-${formatDataMigrationTimestamp(date)}.tar.gz`;
+  `${APP_ID}-backup-${formatDataMigrationTimestamp(date)}.tar.gz`;
 
 export const buildDataMigrationRollbackFileName = (date = new Date()): string =>
-  `lobsterai-rollback-${formatDataMigrationTimestamp(date)}.tar.gz`;
+  `${APP_ID}-rollback-${formatDataMigrationTimestamp(date)}.tar.gz`;
 
 export const ensureTarGzFileName = (filePath: string): string => {
   const trimmed = filePath.trim();
@@ -1334,7 +1334,7 @@ export const inspectMigrationArchiveSync = (
   });
 
   if (!state.root || state.entryCount <= 0) {
-    throw new Error('Backup archive is empty or missing LobsterAI user data.');
+    throw new Error('Backup archive is empty or missing IndustryAI user data.');
   }
   if (requireSqliteDatabase && !state.hasSqliteDatabase) {
     throw new Error(`Backup archive is missing ${DB_FILENAME}.`);
@@ -1402,7 +1402,7 @@ const extractMigrationArchiveToTempSync = (
 
     const sourceRoot = path.join(tempRoot, ...info.root.split('/'));
     if (!fs.existsSync(sourceRoot) || !fs.statSync(sourceRoot).isDirectory()) {
-      throw new Error('Backup archive did not extract a valid LobsterAI user data directory.');
+      throw new Error('Backup archive did not extract a valid IndustryAI user data directory.');
     }
     if (options.validateArchiveContent ?? true) {
       validateExtractedArchiveContentSync(sourceRoot);

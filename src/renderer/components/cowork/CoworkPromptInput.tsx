@@ -114,6 +114,7 @@ type CoworkAttachment = DraftAttachment;
 
 const IMAGE_ATTACHMENT_PREVIEW_MAX_DIMENSION = 512;
 const IMAGE_ATTACHMENT_PREVIEW_QUALITY = 0.78;
+const SHOW_MEDIA_GENERATION_SERVICE = false;
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.tiff', '.tif', '.ico', '.avif']);
 
@@ -1464,6 +1465,7 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
         dropdownDirection="up"
         alignDropdownToTriggerEnd={useHomeContextLayout}
         portal={showReadOnlyContext}
+        showServerModels={false}
         disabled={isPatchingModel || isPersistingAgentModel}
         value={agentModelIsInvalid && currentSession?.modelOverride
           ? { id: '__invalid__', name: currentSession.modelOverride.split('/').pop() || currentSession.modelOverride } as Model
@@ -1643,7 +1645,9 @@ const CoworkPromptInput = React.forwardRef<CoworkPromptInputRef, CoworkPromptInp
   const largeInputToolActions = (
     <div className="flex items-center gap-0.5">
       {largeInputActions}
-      <MediaModelPicker draftKey={draftKey} disabled={disabled || voiceInputLocksEditing} />
+      {SHOW_MEDIA_GENERATION_SERVICE && (
+        <MediaModelPicker draftKey={draftKey} disabled={disabled || voiceInputLocksEditing} />
+      )}
     </div>
   );
   const largeSendButtonSizeClass = useCompactSendButton ? 'h-7 w-7' : 'h-8 w-8';

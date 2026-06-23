@@ -38,7 +38,7 @@ const resolveEngineStatusText = (status: OpenClawEngineStatus): string => {
 /**
  * Global overlay shown when the OpenClaw gateway is starting up.
  * Renders on top of all views (cowork, skills, scheduled tasks, mcp).
- * Styled after WelcomeDialog so first-run flows feel continuous, with
+ * Uses the app's full-screen startup treatment, with
  * rotating feature tips to keep the (10s-2min) wait from feeling idle.
  */
 const EngineStartupOverlay: React.FC = () => {
@@ -89,7 +89,7 @@ const EngineStartupOverlay: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-surface animate-fade-in">
-      {/* brand gradient, same as WelcomeDialog */}
+      {/* brand gradient */}
       <div
         className="absolute inset-0"
         style={{ background: 'linear-gradient(360deg, rgba(255, 0, 77, 0) 5.5%, rgba(255, 0, 77, 0.05) 100%)' }}
@@ -102,7 +102,7 @@ const EngineStartupOverlay: React.FC = () => {
           <div className="absolute -inset-2 rounded-3xl bg-primary/20 blur-xl animate-pulse" aria-hidden="true" />
           <img
             src="logo.png"
-            alt="LobsterAI"
+            alt="IndustryAI"
             width={72}
             height={72}
             className="relative rounded-2xl select-none"

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { resolveHoverCardTop } from './ModelSelector';
+import { filterModelsForSelector, resolveHoverCardTop } from './ModelSelector';
 
 test('keeps model hover card above the viewport bottom', () => {
   expect(resolveHoverCardTop(790, 260, 900)).toBe(632);
@@ -16,4 +16,14 @@ test('does not move a fully visible model hover card', () => {
 
 test('pins model hover card to the margin when it is taller than the viewport', () => {
   expect(resolveHoverCardTop(160, 1000, 900)).toBe(8);
+});
+
+test('filters server models when the selector disables them', () => {
+  const models = [
+    { id: 'server-model', name: 'Server Model', isServerModel: true },
+    { id: 'custom-model', name: 'Custom Model' },
+  ];
+
+  expect(filterModelsForSelector(models, false)).toEqual([models[1]]);
+  expect(filterModelsForSelector(models, true)).toEqual(models);
 });

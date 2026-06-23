@@ -31,6 +31,8 @@ interface ModelSelectorProps {
   portal?: boolean;
   /** Align the dropdown's trailing edge with the trigger's trailing edge. */
   alignDropdownToTriggerEnd?: boolean;
+  /** Include subscription-backed server models in the dropdown. */
+  showServerModels?: boolean;
 }
 
 const DROPDOWN_MAX_HEIGHT = 380; // list max-h-72 plus the tab area and current-model footer
@@ -150,6 +152,10 @@ export function resolveHoverCardTop(
   return Math.min(Math.max(desiredTop, viewportMargin), maxTop);
 }
 
+export function filterModelsForSelector(models: Model[], showServerModels: boolean): Model[] {
+  return showServerModels ? models : models.filter(model => !model.isServerModel);
+}
+
 const MODEL_ICON_PROVIDER_HINTS: Array<{ pattern: RegExp; providerName: ProviderName | ProviderIconId }> = [
   { pattern: /doubao|豆包/i, providerName: ProviderIconId.Doubao },
   { pattern: /deepseek/i, providerName: ProviderName.DeepSeek },
@@ -172,6 +178,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   compact = false,
   portal = false,
   alignDropdownToTriggerEnd = false,
+  showServerModels = true,
 }) => {
   const dispatch = useDispatch();
   const [isOpen, setIsOpen] = React.useState(false);
@@ -195,8 +202,9 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const selectedModel = controlled ? value ?? null : globalSelectedModel;
   const selectedModelKey = selectedModel ? getModelIdentityKey(selectedModel) : '';
   const availableModels = useSelector((state: RootState) => state.model.availableModels);
-  const serverModels = availableModels.filter(m => m.isServerModel);
-  const userModels = availableModels.filter(m => !m.isServerModel);
+  const selectableModels = filterModelsForSelector(availableModels, showServerModels);
+  const serverModels = selectableModels.filter(m => m.isServerModel);
+  const userModels = selectableModels.filter(m => !m.isServerModel);
   const modelGroups = [
     ...(serverModels.length > 0
       ? [{ key: ModelSelectorGroup.Server, label: i18nService.t('modelGroupServer') }]
@@ -222,7 +230,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const visibleGroup = isGroupAvailable(activeGroup) ? activeGroup : getPreferredGroup();
   const visibleModels = shouldShowGroupTabs
     ? (visibleGroup === ModelSelectorGroup.Server ? serverModels : userModels)
-    : availableModels;
+    : selectableModels;
   const accessibleModels = visibleModels.filter(m => m.accessible !== false);
   const restrictedModels = visibleModels.filter(m => m.accessible === false);
   // Keep the list height identical across tabs so switching never resizes the dropdown.
@@ -366,7 +374,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   }, [hoveredModel, hoverCardStyle.top]);
 
   // 如果没有可用模型，显示提示
-  if (availableModels.length === 0) {
+  if (selectableModels.length === 0) {
     return (
       <div className="px-3 py-1.5 rounded-xl bg-surface text-secondary text-sm">
         {i18nService.t('modelSelectorNoModels')}

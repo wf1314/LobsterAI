@@ -22,7 +22,7 @@ import { i18nService, LanguageType } from '../services/i18n';
 import { imService } from '../services/im';
 import { formatShortcutForDisplay, getShortcutConflictSignature, matchesShortcut } from '../services/shortcuts';
 import { themeService } from '../services/theme';
-import type { RootState } from '../store';
+// import type { RootState } from '../store';
 import { selectCoworkConfig } from '../store/selectors/coworkSelectors';
 import { setAvailableModels } from '../store/slices/modelSlice';
 import type {
@@ -35,7 +35,6 @@ import type {
 } from '../types/cowork';
 import { OpenClawSessionKeepAlive as OpenClawSessionKeepAliveValues } from '../types/cowork';
 import Modal from './common/Modal';
-import DreamingSettingsSection from './cowork/DreamingSettingsSection';
 import EmbeddingSettingsSection from './cowork/EmbeddingSettingsSection';
 import ErrorMessage from './ErrorMessage';
 import BrainIcon from './icons/BrainIcon';
@@ -74,6 +73,13 @@ import EmailSkillConfig from './skills/EmailSkillConfig';
 import ThemedSelect from './ui/ThemedSelect';
 
 type TabType = 'general' | 'appearance' | 'coworkAgentEngine' | 'model' | 'browserWebAccess' | 'coworkMemory' | 'coworkDreaming' | 'shortcuts' | 'im' | 'email' | 'plugins' | 'about';
+
+const normalizeSettingsTab = (tab?: TabType): TabType => {
+  if (tab === 'coworkDreaming') {
+    return 'coworkMemory';
+  }
+  return tab ?? 'general';
+};
 
 const waitForNextPaint = (): Promise<void> => new Promise(resolve => {
   window.requestAnimationFrame(() => {
@@ -142,7 +148,7 @@ const SETTINGS_TAB_SHORTCUT_ACTIONS: Partial<Record<ShortcutAction, TabType>> = 
   [ShortcutAction.OpenSettingsBrowser]: 'browserWebAccess',
   [ShortcutAction.OpenSettingsEmail]: 'email',
   [ShortcutAction.OpenSettingsMemory]: 'coworkMemory',
-  [ShortcutAction.OpenSettingsDreaming]: 'coworkDreaming',
+  [ShortcutAction.OpenSettingsDreaming]: 'coworkMemory',
   [ShortcutAction.OpenSettingsPlugins]: 'plugins',
   [ShortcutAction.OpenSettingsShortcuts]: 'shortcuts',
   [ShortcutAction.OpenSettingsAbout]: 'about',
@@ -174,7 +180,6 @@ const SETTINGS_TAB_SHORTCUT_COMMANDS: ShortcutCommandDefinition[] = [
   { key: ShortcutAction.OpenSettingsBrowser, tabLabelKey: 'browserWebAccessTab' },
   { key: ShortcutAction.OpenSettingsEmail, tabLabelKey: 'emailTab' },
   { key: ShortcutAction.OpenSettingsMemory, tabLabelKey: 'coworkMemoryTitle' },
-  { key: ShortcutAction.OpenSettingsDreaming, tabLabelKey: 'coworkMemoryTabDreaming' },
   { key: ShortcutAction.OpenSettingsPlugins, tabLabelKey: 'pluginsTab' },
   { key: ShortcutAction.OpenSettingsShortcuts, tabLabelKey: 'shortcuts' },
   { key: ShortcutAction.OpenSettingsAbout, tabLabelKey: 'about' },
@@ -271,23 +276,6 @@ const SettingsSlidersIcon: React.FC<{ className?: string }> = ({ className }) =>
   </svg>
 );
 
-const DreamingTabIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg
-    width="34"
-    height="34"
-    viewBox="0 0 34 34"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    aria-hidden="true"
-  >
-    <path
-      d="M27.9219 21.9648L29.014 22.4621L29.8552 20.6145L27.831 20.7683L27.9219 21.9648ZM16.0762 5.03516L17.1683 5.53234L18.0095 3.68449L15.9851 3.83862L16.0762 5.03516ZM27.9219 21.9648L26.8297 21.4676C25.1281 25.205 21.3674 27.8 17 27.8V29V30.2C22.3442 30.2 26.9378 27.0221 29.014 22.4621L27.9219 21.9648ZM17 29V27.8C11.0353 27.8 6.2 22.9647 6.2 17H5H3.8C3.8 24.2902 9.70984 30.2 17 30.2V29ZM5 17H6.2C6.2 11.3157 10.5923 6.65614 16.1673 6.23169L16.0762 5.03516L15.9851 3.83862C9.16855 4.35759 3.8 10.0512 3.8 17H5ZM16.0762 5.03516L14.984 4.53798C14.2262 6.20275 13.8 8.052 13.8 10H15H16.2C16.2 8.40537 16.5483 6.8944 17.1683 5.53234L16.0762 5.03516ZM15 10H13.8C13.8 17.2902 19.7098 23.2 27 23.2V22V20.8C21.0353 20.8 16.2 15.9647 16.2 10H15ZM27 22V23.2C27.3413 23.2 27.679 23.1868 28.0128 23.1614L27.9219 21.9648L27.831 20.7683C27.5562 20.7892 27.2791 20.8 27 20.8V22Z"
-      fill="currentColor"
-    />
-  </svg>
-);
-
 export type SettingsOpenOptions = {
   initialTab?: TabType;
   notice?: string;
@@ -355,7 +343,7 @@ interface ProvidersImportPayload {
   providers?: Record<string, ProvidersImportEntry>;
 }
 
-const ABOUT_CONTACT_EMAIL = 'lobsterai.project@rd.netease.com';
+const ABOUT_CONTACT_EMAIL = 'business@shangqi.com.cn';
 const ABOUT_USER_MANUAL_URL = 'https://lobsterai.youdao.com/#/docs/lobsterai_user_manual';
 const ABOUT_USER_COMMUNITY_URL = 'https://lobsterai.youdao.com/#/about';
 const ABOUT_SERVICE_TERMS_URL = 'https://c.youdao.com/dict/hardware/lobsterai/lobsterai_service.html';
@@ -711,12 +699,12 @@ const Settings: React.FC<SettingsProps> = ({
   notice,
   noticeI18nKey,
   noticeExtra,
-  onUpdateFound,
+  // onUpdateFound,
   enterpriseConfig,
 }) => {
   const dispatch = useDispatch();
   // 状态
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab ?? 'general');
+  const [activeTab, setActiveTab] = useState<TabType>(() => normalizeSettingsTab(initialTab));
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [themeId, setThemeId] = useState<string>(themeService.getThemeId());
   const [language, setLanguage] = useState<LanguageType>('zh');
@@ -886,6 +874,9 @@ const Settings: React.FC<SettingsProps> = ({
     }
   }, []);
 
+  /*
+  // Temporarily disabled. Uncomment the related import, prop destructuring,
+  // handler, and button onClick when manual update checks are enabled again.
   const authUser = useSelector((state: RootState) => state.auth.user);
 
   const handleCheckUpdate = useCallback(async () => {
@@ -931,6 +922,7 @@ const Settings: React.FC<SettingsProps> = ({
       }, 3000);
     }
   }, [appVersion, authUser, updateCheckStatus, onUpdateFound]);
+  */
 
   const updateButtonLabel = useMemo(() => {
     if (
@@ -1391,7 +1383,7 @@ const Settings: React.FC<SettingsProps> = ({
 
   useEffect(() => {
     if (initialTab) {
-      setActiveTab(initialTab);
+      setActiveTab(normalizeSettingsTab(initialTab));
     }
   }, [initialTab, initialTabRequestId]);
 
@@ -2422,7 +2414,8 @@ const Settings: React.FC<SettingsProps> = ({
 
   // 标签页切换处理
   const doTabChange = useCallback((tab: TabType) => {
-    if (tab !== 'model') {
+    const nextTab = normalizeSettingsTab(tab);
+    if (nextTab !== 'model') {
       setIsAddingModel(false);
       setIsEditingModel(false);
       setEditingModelId(null);
@@ -2431,7 +2424,7 @@ const Settings: React.FC<SettingsProps> = ({
       setNewModelSupportsImage(false);
       setModelFormError(null);
     }
-    setActiveTab(tab);
+    setActiveTab(nextTab);
   }, []);
 
   const handleTabChange = useCallback((tab: TabType) => {
@@ -3153,7 +3146,6 @@ const Settings: React.FC<SettingsProps> = ({
       { key: 'browserWebAccess' as TabType, label: i18nService.t('browserWebAccessTab'), icon: <GlobeAltIcon className="h-5 w-5" /> },
       { key: 'email' as TabType,          label: i18nService.t('emailTab'),       icon: <EnvelopeIcon className="h-5 w-5" /> },
       { key: 'coworkMemory' as TabType,   label: i18nService.t('coworkMemoryTitle'), icon: <BrainIcon className="h-5 w-5" /> },
-      { key: 'coworkDreaming' as TabType, label: i18nService.t('coworkMemoryTabDreaming'), icon: <DreamingTabIcon className="h-5 w-5" /> },
       { key: 'plugins' as TabType,        label: i18nService.t('pluginsTab'),     icon: <PlugIcon className="h-5 w-5" /> },
       { key: 'shortcuts' as TabType,      label: i18nService.t('shortcuts'),      icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5"><rect x="2" y="4" width="20" height="14" rx="2" /><line x1="6" y1="8" x2="8" y2="8" /><line x1="10" y1="8" x2="12" y2="8" /><line x1="14" y1="8" x2="16" y2="8" /><line x1="6" y1="12" x2="8" y2="12" /><line x1="10" y1="12" x2="14" y2="12" /><line x1="16" y1="12" x2="18" y2="12" /><line x1="8" y1="15.5" x2="16" y2="15.5" /></svg> },
       { key: 'about' as TabType,          label: i18nService.t('about'),          icon: <InformationCircleIcon className="h-5 w-5" /> },
@@ -3848,18 +3840,6 @@ const Settings: React.FC<SettingsProps> = ({
         );
       }
 
-      case 'coworkDreaming':
-        return (
-          <div className="min-h-full">
-            <DreamingSettingsSection
-              dreamingEnabled={dreamingEnabled}
-              dreamingFrequency={dreamingFrequency}
-              onDreamingEnabledChange={setDreamingEnabled}
-              onDreamingFrequencyChange={setDreamingFrequency}
-            />
-          </div>
-        );
-
       case 'browserWebAccess':
         return (
           <BrowserWebAccessSettings
@@ -4032,8 +4012,8 @@ const Settings: React.FC<SettingsProps> = ({
             {/* Logo & App Name */}
             <img
               src="logo.png"
-              alt="LobsterAI"
-              className="w-16 h-16 mb-3 cursor-pointer select-none"
+              alt="IndustryAI"
+              className="mb-3 h-auto w-28 cursor-pointer select-none"
               onClick={(e) => {
                 if (!e.altKey || !e.shiftKey) return;
 
@@ -4044,7 +4024,7 @@ const Settings: React.FC<SettingsProps> = ({
                 }
               }}
             />
-            <h3 className="text-lg font-semibold text-foreground">LobsterAI</h3>
+            <h3 className="text-lg font-semibold text-foreground">IndustryAI</h3>
             <span className="text-xs text-secondary mt-1">v{appVersion}</span>
 
             {/* Info Card */}
@@ -4056,11 +4036,11 @@ const Settings: React.FC<SettingsProps> = ({
                   {!enterpriseConfig?.disableUpdate && (
                   <button
                     type="button"
-                    disabled={updateCheckStatus === 'checking' || updateCheckStatus === 'downloading'}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleCheckUpdate();
-                    }}
+                    disabled
+                    // onClick={(e) => {
+                    //   e.stopPropagation();
+                    //   void handleCheckUpdate();
+                    // }}
                     className="text-xs px-2 py-0.5 rounded-md border border-border text-secondary hover:text-primary dark:hover:text-primary hover:border-primary dark:hover:border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {updateButtonLabel}
@@ -4073,7 +4053,7 @@ const Settings: React.FC<SettingsProps> = ({
                   )}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 border-b border-border">
+              <div className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3${testModeUnlocked ? ' border-b border-border' : ''}`}>
                 <span className="shrink-0 text-sm text-foreground">{i18nService.t('aboutContactEmail')}</span>
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                   <button
@@ -4094,7 +4074,7 @@ const Settings: React.FC<SettingsProps> = ({
                   )}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 border-b border-border">
+              <div className="hidden">
                 <span className="shrink-0 text-sm text-foreground">{i18nService.t('aboutUserCommunity')}</span>
                 <button
                   type="button"
@@ -4107,7 +4087,7 @@ const Settings: React.FC<SettingsProps> = ({
                   {ABOUT_USER_COMMUNITY_URL}
                 </button>
               </div>
-              <div className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3${testModeUnlocked ? ' border-b border-border' : ''}`}>
+              <div className="hidden">
                 <span className="shrink-0 text-sm text-foreground">{i18nService.t('aboutUserManual')}</span>
                 <button
                   type="button"
@@ -4151,11 +4131,10 @@ const Settings: React.FC<SettingsProps> = ({
                     e.stopPropagation();
                     handleOpenServiceTerms();
                   }}
-                  className="bg-transparent border-none appearance-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded-md cursor-pointer hover:text-primary dark:hover:text-primary transition-colors"
+                  className="hidden"
                 >
                   {i18nService.t('aboutServiceTerms')}
                 </button>
-                <span className="text-xs opacity-40">|</span>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -4169,10 +4148,10 @@ const Settings: React.FC<SettingsProps> = ({
                 </button>
               </div>
 
-              <p className="mt-5 text-center text-xs text-secondary">
+              <p className="hidden">
                 {i18nService.t('copyrightHolder')}
               </p>
-              <p className="mt-1 text-center text-xs text-secondary">
+              <p className="hidden">
                 Copyright &copy; {new Date().getFullYear()} NetEase Youdao. All Rights Reserved.
               </p>
             </div>

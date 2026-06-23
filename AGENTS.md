@@ -38,7 +38,7 @@ npm run openclaw:runtime:host   # current platform
 
 ## Architecture Overview
 
-LobsterAI is an Electron + React desktop application with two primary modes:
+IndustryAI is an Electron + React desktop application with two primary modes:
 1. **Cowork Mode** - AI-assisted coding sessions powered by OpenClaw as the primary agent engine
 2. **Artifacts System** - Rich preview of code outputs (HTML, SVG, React, Mermaid)
 
@@ -46,7 +46,7 @@ Uses strict process isolation with IPC communication.
 
 ### Authentication Flow
 
-1. **登录：** 打开系统浏览器 → Portal 登录页 → URS 登录成功 → deep link `lobsterai://auth/callback?code=<authCode>`
+1. **登录：** 打开系统浏览器 → Portal 登录页 → URS 登录成功 → deep link `industryai://auth/callback?code=<authCode>`
 2. **换取令牌：** `POST /api/auth/exchange` 消费一次性 authCode → 返回 `accessToken`(2h) + `refreshToken`(30d)
 3. **持久化：** SQLite kv store `auth_tokens` 存储双 token，应用重启后自动恢复登录态
 4. **请求认证：** `fetchWithAuth()` 在每个 API 请求附加 `Authorization: Bearer <accessToken>`
@@ -57,7 +57,7 @@ Uses strict process isolation with IPC communication.
 
 **关键文件：**
 - Token 存储与请求：`src/renderer/services/api.ts`（`fetchWithAuth()`、token 管理）
-- 登录流程：`src/main/main.ts`（deep link 处理 `lobsterai://` 协议）
+- 登录流程：`src/main/main.ts`（deep link 处理 `industryai://` 协议）
 - 持久化：`src/main/sqliteStore.ts`（kv 表存储 `auth_tokens`）
 
 ### Process Model

@@ -298,7 +298,8 @@ const LoginButton: React.FC = () => {
       setShowMenu(!showMenu);
       return;
     }
-    await authService.login();
+    // Temporarily disabled. Uncomment to restore the external login flow.
+    // await authService.login();
   };
 
   return (
