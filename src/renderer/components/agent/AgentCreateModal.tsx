@@ -102,9 +102,10 @@ const AgentCreateModal: React.FC<AgentCreateModalProps> = ({
     setIcon(DefaultAgentAvatarIcon);
     const currentAgent = agents.find((agent) => agent.id === currentAgentId);
     const defaultWorkingDirectory = currentAgent?.workingDirectory?.trim() || coworkConfig.workingDirectory || '';
+    const defaultModel = globalSelectedModel?.isServerModel ? null : globalSelectedModel;
     initialWorkingDirectoryRef.current = defaultWorkingDirectory;
-    initialModelRef.current = globalSelectedModel ? toOpenClawModelRef(globalSelectedModel) : '';
-    setModel(globalSelectedModel ?? null);
+    initialModelRef.current = defaultModel ? toOpenClawModelRef(defaultModel) : '';
+    setModel(defaultModel ?? null);
     setWorkingDirectory(defaultWorkingDirectory);
     setSkillIds([]);
     setActiveTab(AgentDetailTab.Identity);
@@ -125,7 +126,7 @@ const AgentCreateModal: React.FC<AgentCreateModalProps> = ({
   }, [agents, coworkConfig.workingDirectory, currentAgentId, globalSelectedModel, isOpen]);
 
   useEffect(() => {
-    if (!isOpen || model || !globalSelectedModel) return;
+    if (!isOpen || model || !globalSelectedModel || globalSelectedModel.isServerModel) return;
     if (!initialModelRef.current) {
       initialModelRef.current = toOpenClawModelRef(globalSelectedModel);
     }
@@ -528,6 +529,7 @@ const AgentCreateModal: React.FC<AgentCreateModalProps> = ({
           onModelChange={setModel}
           workingDirectory={workingDirectory}
           onWorkingDirectoryChange={setWorkingDirectory}
+          showServerModels={false}
         />
         <div className="flex shrink-0 gap-2">
           <button

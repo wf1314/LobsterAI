@@ -11,6 +11,7 @@ interface AgentDetailToolbarProps {
   onModelChange: (model: Model | null) => void;
   workingDirectory: string;
   onWorkingDirectoryChange: (value: string) => void;
+  showServerModels?: boolean;
 }
 
 const AgentDetailToolbar: React.FC<AgentDetailToolbarProps> = ({
@@ -18,6 +19,7 @@ const AgentDetailToolbar: React.FC<AgentDetailToolbarProps> = ({
   onModelChange,
   workingDirectory,
   onWorkingDirectoryChange,
+  showServerModels = true,
 }) => (
   <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
     <div
@@ -30,6 +32,7 @@ const AgentDetailToolbar: React.FC<AgentDetailToolbarProps> = ({
         value={model}
         onChange={onModelChange}
         portal
+        showServerModels={showServerModels}
       />
     </div>
     <AgentWorkingDirectoryField
