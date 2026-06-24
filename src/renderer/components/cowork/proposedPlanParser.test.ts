@@ -56,6 +56,44 @@ describe('parseProposedPlanBlock', () => {
       didNormalizePlanText: true,
     });
   });
+
+  test('normalizes heading-style section labels with bodies on the same line', () => {
+    expect(parseProposedPlanBlock([
+      '<proposed_plan>',
+      '## Summary 创建生日派对邀请函网页。 ## Implementation Approach 1. 创建 index.html。',
+      '</proposed_plan>',
+    ].join('\n'))).toEqual({
+      visibleText: '',
+      planText: [
+        '## Summary',
+        '',
+        '创建生日派对邀请函网页。',
+        '## Implementation Approach',
+        '',
+        '1. 创建 index.html。',
+      ].join('\n'),
+      didNormalizePlanText: true,
+    });
+  });
+
+  test('normalizes bold section labels with bodies on the same line', () => {
+    expect(parseProposedPlanBlock([
+      '<proposed_plan>',
+      '**Summary** 制作季度汇报 PPT。 **Implementation Approach** 1. 使用 html2pptx 工作流。',
+      '</proposed_plan>',
+    ].join('\n'))).toEqual({
+      visibleText: '',
+      planText: [
+        '## Summary',
+        '',
+        '制作季度汇报 PPT。',
+        '## Implementation Approach',
+        '',
+        '1. 使用 html2pptx 工作流。',
+      ].join('\n'),
+      didNormalizePlanText: true,
+    });
+  });
 });
 
 describe('normalizeProposedPlanMarkdown', () => {
