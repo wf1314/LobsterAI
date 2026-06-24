@@ -312,30 +312,6 @@ interface McpServerConfigIPC {
   updatedAt: number;
 }
 
-interface McpMarketplaceServer {
-  id: string;
-  name: string;
-  description_zh: string;
-  description_en: string;
-  category: string;
-  transportType: 'stdio' | 'sse' | 'http';
-  command: string;
-  defaultArgs: string[];
-  requiredEnvKeys?: string[];
-  optionalEnvKeys?: string[];
-}
-
-interface McpMarketplaceCategory {
-  id: string;
-  name_zh: string;
-  name_en: string;
-}
-
-interface McpMarketplaceData {
-  categories: McpMarketplaceCategory[];
-  servers: McpMarketplaceServer[];
-}
-
 import type { Platform } from '@shared/platform';
 
 import type { Agent, PresetAgent } from './agent';
@@ -453,11 +429,6 @@ interface IElectronAPI {
     retryLaunchResolution: (
       id: string,
     ) => Promise<{ success: boolean; servers?: McpServerConfigIPC[]; error?: string }>;
-    fetchMarketplace: () => Promise<{
-      success: boolean;
-      data?: McpMarketplaceData;
-      error?: string;
-    }>;
     onChanged: (callback: () => void) => () => void;
   };
   kits: {

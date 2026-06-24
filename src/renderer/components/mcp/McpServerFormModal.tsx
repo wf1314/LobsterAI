@@ -32,9 +32,10 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
   const [argsText, setArgsText] = useState('');
   const [envRows, setEnvRows] = useState<{ key: string; value: string; required?: boolean }[]>([]);
   const [url, setUrl] = useState('');
-  const [headerRows, setHeaderRows] = useState<{ key: string; value: string }[]>([]);
+  const [headerRows, setHeaderRows] = useState<{ key: string; value: string; required?: boolean }[]>([]);
   const [error, setError] = useState('');
   const [envErrors, setEnvErrors] = useState<Record<number, boolean>>({});
+  const [headerErrors, setHeaderErrors] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,20 +59,27 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
       setUrl(server.url || '');
       setHeaderRows(
         server.headers
-          ? Object.entries(server.headers).map(([key, value]) => ({ key, value }))
+          ? Object.entries(server.headers).map(([key, value]) => ({
+              key,
+              value,
+              required: registryEntry?.requiredHeaderKeys?.includes(key) || undefined,
+            }))
           : []
       );
     } else if (registryEntry) {
       // Registry install mode — pre-fill from template
-      setName(registryEntry.name);
+      setName(
+        (i18nService.getLanguage() === 'zh' ? registryEntry.name_zh : registryEntry.name_en)
+        || registryEntry.name
+      );
       const registryDescription =
         (i18nService.getLanguage() === 'zh' ? registryEntry.description_zh : registryEntry.description_en)
         || (registryEntry.descriptionKey ? i18nService.t(registryEntry.descriptionKey) : '');
       setDescription(registryDescription);
       setTransportType(registryEntry.transportType);
-      setCommand(registryEntry.command);
+      setCommand(registryEntry.command || '');
       // defaultArgs + argPlaceholders
-      const allArgs = [...registryEntry.defaultArgs];
+      const allArgs = [...(registryEntry.defaultArgs || [])];
       if (registryEntry.argPlaceholders) {
         allArgs.push(...registryEntry.argPlaceholders);
       }
@@ -89,8 +97,30 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
         }
       }
       setEnvRows(envEntries);
-      setUrl('');
-      setHeaderRows([]);
+      setUrl(registryEntry.url || '');
+      const headerEntries: { key: string; value: string; required?: boolean }[] = [];
+      const seenHeaderKeys = new Set<string>();
+      const requiredHeaderKeys = new Set(registryEntry.requiredHeaderKeys ?? []);
+      for (const [key, value] of Object.entries(registryEntry.headers ?? {})) {
+        headerEntries.push({
+          key,
+          value,
+          required: requiredHeaderKeys.has(key) || undefined,
+        });
+        seenHeaderKeys.add(key);
+      }
+      for (const key of registryEntry.requiredHeaderKeys ?? []) {
+        if (!seenHeaderKeys.has(key)) {
+          headerEntries.push({ key, value: '', required: true });
+          seenHeaderKeys.add(key);
+        }
+      }
+      for (const key of registryEntry.optionalHeaderKeys ?? []) {
+        if (!seenHeaderKeys.has(key)) {
+          headerEntries.push({ key, value: '', required: false });
+        }
+      }
+      setHeaderRows(headerEntries);
     } else {
       // Create mode
       setName('');
@@ -104,6 +134,7 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
     }
     setError('');
     setEnvErrors({});
+    setHeaderErrors({});
   }, [isOpen, server, registryEntry]);
 
   const handleSave = () => {
@@ -156,6 +187,17 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
     });
     if (Object.keys(missingRequiredIndices).length > 0) {
       setEnvErrors(missingRequiredIndices);
+      return;
+    }
+
+    const missingRequiredHeaderIndices: Record<number, boolean> = {};
+    headerRows.forEach((row, index) => {
+      if (row.required && !row.value.trim()) {
+        missingRequiredHeaderIndices[index] = true;
+      }
+    });
+    if (Object.keys(missingRequiredHeaderIndices).length > 0) {
+      setHeaderErrors(missingRequiredHeaderIndices);
       return;
     }
 
@@ -233,6 +275,13 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
     const updated = [...headerRows];
     updated[index] = { ...updated[index], [field]: val };
     setHeaderRows(updated);
+    if (field === 'value' && headerErrors[index]) {
+      setHeaderErrors(prev => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+    }
   };
 
   useEffect(() => {
@@ -255,7 +304,10 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
   const modalTitle = isEdit
     ? i18nService.t('editMcpServer')
     : isRegistry
-      ? `${i18nService.t('mcpInstall')} ${registryEntry!.name}`
+      ? `${i18nService.t('mcpInstall')} ${
+          (i18nService.getLanguage() === 'zh' ? registryEntry!.name_zh : registryEntry!.name_en)
+          || registryEntry!.name
+        }`
       : i18nService.t('addMcpServer');
 
   // Save button text
@@ -417,13 +469,21 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder={i18nService.t('mcpUrlPlaceholder')}
-                  className={inputClass}
+                  className={isRegistry ? readOnlyInputClass : inputClass}
+                  readOnly={isRegistry}
                 />
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className={labelClass}>{i18nService.t('mcpHeaders')}</label>
+                  <label className={labelClass}>
+                    {i18nService.t('mcpHeaders')}
+                    {isRegistry && headerRows.some(r => r.required) && (
+                      <span className="ml-2 text-[10px] text-red-400 font-normal">
+                        * {i18nService.t('mcpRequiredConfig')}
+                      </span>
+                    )}
+                  </label>
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
@@ -433,30 +493,48 @@ const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
                   </button>
                 </div>
                 {headerRows.map((row, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={row.key}
-                      onChange={(e) => handleUpdateHeaderRow(index, 'key', e.target.value)}
-                      placeholder={i18nService.t('mcpHeaderKey')}
-                      className={kvInputClass}
-                    />
-                    <input
-                      type="text"
-                      value={row.value}
-                      onChange={(e) => handleUpdateHeaderRow(index, 'value', e.target.value)}
-                      placeholder={i18nService.t('mcpHeaderValue')}
-                      className={kvInputClass}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveHeaderRow(index)}
-                      className="p-1 text-secondary hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                      </svg>
-                    </button>
+                  <div key={index} className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={row.key}
+                        onChange={(e) => handleUpdateHeaderRow(index, 'key', e.target.value)}
+                        placeholder={i18nService.t('mcpHeaderKey')}
+                        className={row.required ? kvInputClass + ' opacity-60 cursor-not-allowed' : kvInputClass}
+                        readOnly={!!row.required}
+                      />
+                      <input
+                        type={row.required ? 'password' : 'text'}
+                        value={row.value}
+                        onChange={(e) => handleUpdateHeaderRow(index, 'value', e.target.value)}
+                        placeholder={row.required ? `${row.key} *` : i18nService.t('mcpHeaderValue')}
+                        className={
+                          headerErrors[index]
+                            ? kvInputClass + ' border-red-500 focus:ring-red-500'
+                            : kvInputClass
+                        }
+                        autoFocus={isRegistry && index === 0 && !!row.required}
+                      />
+                      {!row.required && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHeaderRow(index)}
+                          className="p-1 text-secondary hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                          </svg>
+                        </button>
+                      )}
+                      {row.required && (
+                        <span className="text-red-400 text-xs flex-shrink-0 w-4 text-center">*</span>
+                      )}
+                    </div>
+                    {headerErrors[index] && row.required && (
+                      <p className="text-xs text-red-500 ml-[calc(50%+8px)]">
+                        {i18nService.t('mcpEnvRequired')}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

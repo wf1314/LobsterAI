@@ -5,7 +5,6 @@ export const McpIpcChannel = {
   Delete: 'mcp:delete',
   SetEnabled: 'mcp:setEnabled',
   RetryLaunchResolution: 'mcp:retryLaunchResolution',
-  FetchMarketplace: 'mcp:fetchMarketplace',
   Changed: 'mcp:changed',
 } as const;
 export type McpIpcChannel = typeof McpIpcChannel[keyof typeof McpIpcChannel];

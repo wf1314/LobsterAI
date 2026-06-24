@@ -83,7 +83,6 @@ contextBridge.exposeInMainWorld('electron', {
     setEnabled: (options: { id: string; enabled: boolean }) =>
       ipcRenderer.invoke(McpIpcChannel.SetEnabled, options),
     retryLaunchResolution: (id: string) => ipcRenderer.invoke(McpIpcChannel.RetryLaunchResolution, id),
-    fetchMarketplace: () => ipcRenderer.invoke(McpIpcChannel.FetchMarketplace),
     onChanged: (callback: () => void) => {
       const handler = () => callback();
       ipcRenderer.on(McpIpcChannel.Changed, handler);

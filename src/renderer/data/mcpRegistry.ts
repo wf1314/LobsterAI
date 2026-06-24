@@ -7,6 +7,22 @@ import { McpRegistryEntry } from '../types/mcp';
  * before it is saved to the database.
  */
 export const mcpRegistry: McpRegistryEntry[] = [
+  // ── Changyetong Tools ──────────────────────────────────
+  {
+    id: 'industry_dimension_quick_company_recommend_mcp',
+    name: '招商场景企业推荐',
+    name_zh: '招商场景企业推荐',
+    name_en: 'Recommended companies in investment scenarios',
+    descriptionKey: 'mcpDesc_industry_dimension_quick_company_recommend',
+    category: 'changyetong-tools',
+    categoryKey: 'mcpCategoryChangyetongTools',
+    transportType: 'sse',
+    url: 'https://chanyedata.com/industry_dimension_quick_company_recommend_mcp/sse',
+    headers: {
+      'App-Key': '',
+    },
+    requiredHeaderKeys: ['App-Key'],
+  },
   // ── Search ──────────────────────────────────────────────
   {
     id: 'tavily',
@@ -173,4 +189,5 @@ export const mcpCategories = [
   { id: 'browser', key: 'mcpCategoryBrowser' },
   { id: 'design', key: 'mcpCategoryDesign' },
   { id: 'data-api', key: 'mcpCategoryDataApi' },
+  { id: 'changyetong-tools', key: 'mcpCategoryChangyetongTools' },
 ] as const;

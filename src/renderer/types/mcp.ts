@@ -58,38 +58,23 @@ export interface McpServerFormData {
 export interface McpRegistryEntry {
   id: string;                    // unique identifier, e.g. 'filesystem'
   name: string;                  // display name
+  name_zh?: string;              // Chinese display name
+  name_en?: string;              // English display name
   descriptionKey: string;        // i18n translation key for description
   description_zh?: string;       // Chinese description (remote data)
   description_en?: string;       // English description (remote data)
   category: McpCategory;         // category tag
   categoryKey: string;           // i18n translation key for category
   transportType: McpTransportType;
-  command: string;               // default command, e.g. 'npx'
-  defaultArgs: string[];         // default arguments
+  command?: string;              // default command, e.g. 'npx'
+  defaultArgs?: string[];        // default arguments
+  url?: string;                  // default sse / http URL
+  headers?: Record<string, string>; // default sse / http headers
   requiredEnvKeys?: string[];    // env vars the user must fill
   optionalEnvKeys?: string[];    // optional env vars
+  requiredHeaderKeys?: string[]; // headers the user must fill
+  optionalHeaderKeys?: string[]; // optional headers
   argPlaceholders?: string[];    // placeholder hints for args (e.g. path)
-}
-
-// Remote marketplace server entry
-export interface McpMarketplaceServer {
-  id: string;
-  name: string;
-  description_zh?: string;
-  description_en?: string;
-  category: string;
-  transportType: string;
-  command: string;
-  defaultArgs: string[];
-  requiredEnvKeys?: string[];
-  optionalEnvKeys?: string[];
-}
-
-// Dynamic marketplace category from remote
-export interface McpMarketplaceCategoryInfo {
-  id: string;
-  name_zh: string;
-  name_en: string;
 }
 
 export type McpCategory =
@@ -98,4 +83,5 @@ export type McpCategory =
   | 'developer'
   | 'productivity'
   | 'design'
-  | 'data-api';
+  | 'data-api'
+  | 'changyetong-tools';

@@ -7,7 +7,7 @@ import { i18nService } from '../../services/i18n';
 import { mcpService } from '../../services/mcp';
 import { RootState } from '../../store';
 import { setMcpServers } from '../../store/slices/mcpSlice';
-import { McpMarketplaceCategoryInfo,McpRegistryEntry, McpServerConfig, McpServerFormData } from '../../types/mcp';
+import { McpRegistryEntry, McpServerConfig, McpServerFormData } from '../../types/mcp';
 import Modal from '../common/Modal';
 import ErrorMessage from '../ErrorMessage';
 import ConnectorIcon from '../icons/ConnectorIcon';
@@ -31,6 +31,7 @@ const LAUNCH_STATUS_COLORS: Record<string, string> = {
 };
 
 type McpTab = 'installed' | 'marketplace' | 'custom';
+type McpCategoryDisplay = { id: string; key: string; name_zh?: string; name_en?: string };
 
 /**
  * Text with line-clamp-2 that shows a popover above the text when truncated.
@@ -91,8 +92,8 @@ const McpManager: React.FC = () => {
   const [editingServer, setEditingServer] = useState<McpServerConfig | null>(null);
   const [installingRegistry, setInstallingRegistry] = useState<McpRegistryEntry | null>(null);
   const [activeCategory, setActiveCategory] = useState('all');
-  const [dynamicRegistry, setDynamicRegistry] = useState<McpRegistryEntry[]>(mcpRegistry);
-  const [dynamicCategories, setDynamicCategories] = useState<ReadonlyArray<{ id: string; key: string; name_zh?: string; name_en?: string }>>(mcpCategories);
+  const dynamicRegistry = mcpRegistry;
+  const dynamicCategories: ReadonlyArray<McpCategoryDisplay> = mcpCategories;
   const currentLanguage = i18nService.getLanguage();
 
   useEffect(() => {
@@ -113,28 +114,7 @@ const McpManager: React.FC = () => {
     });
   }, [dispatch]);
 
-  useEffect(() => {
-    let isActive = true;
-    const fetchMarketplace = async () => {
-      const result = await mcpService.fetchMarketplace();
-      if (!isActive || !result) return;
-      setDynamicRegistry(result.registry);
-      const cats: Array<{ id: string; key: string; name_zh?: string; name_en?: string }> = [
-        { id: 'all', key: 'mcpCategoryAll' },
-        ...result.categories
-          .filter((c: McpMarketplaceCategoryInfo) => c.id !== 'all')
-          .map((c: McpMarketplaceCategoryInfo) => ({
-            id: c.id,
-            key: '',
-            name_zh: c.name_zh,
-            name_en: c.name_en,
-          })),
-      ];
-      setDynamicCategories(cats);
-    };
-    fetchMarketplace();
-    return () => { isActive = false; };
-  }, []);
+  // Remote MCP marketplace is temporarily disabled; only built-in presets are shown.
 
   const installedRegistryIds = useMemo(() => {
     const ids = new Set<string>();
@@ -151,6 +131,11 @@ const McpManager: React.FC = () => {
     return '';
   }, [currentLanguage]);
 
+  const getRegistryEntryName = useCallback((entry: McpRegistryEntry): string => {
+    const localizedName = currentLanguage === 'zh' ? entry.name_zh : entry.name_en;
+    return localizedName || entry.name;
+  }, [currentLanguage]);
+
   const getStdioCommandSummary = (command?: string, args?: string[]): string => {
     if (!command) return '';
     if (!args || args.length === 0) return command;
@@ -162,10 +147,17 @@ const McpManager: React.FC = () => {
       return dynamicRegistry.find(entry => entry.id === server.registryId);
     }
     if (!server.isBuiltIn) return undefined;
+    const serverName = server.name.toLowerCase();
     return dynamicRegistry.find((entry) => (
-      entry.name.toLowerCase() === server.name.toLowerCase()
+      [entry.name, entry.name_zh, entry.name_en]
+        .filter((name): name is string => typeof name === 'string' && name.length > 0)
+        .some(name => name.toLowerCase() === serverName)
       && entry.transportType === server.transportType
-      && entry.command === server.command
+      && (
+        entry.transportType === 'stdio'
+          ? entry.command === server.command
+          : entry.url === server.url
+      )
     ));
   }, [dynamicRegistry]);
 
@@ -237,6 +229,7 @@ const McpManager: React.FC = () => {
     if (query) {
       entries = entries.filter(e =>
         e.name.toLowerCase().includes(query)
+        || getRegistryEntryName(e).toLowerCase().includes(query)
         || getRegistryEntryDescription(e).toLowerCase().includes(query)
       );
     }
@@ -244,7 +237,7 @@ const McpManager: React.FC = () => {
       entries = entries.filter(e => e.category === activeCategory);
     }
     return entries;
-  }, [searchQuery, activeCategory, dynamicRegistry, getRegistryEntryDescription]);
+  }, [searchQuery, activeCategory, dynamicRegistry, getRegistryEntryDescription, getRegistryEntryName]);
 
   const handleToggleEnabled = async (serverId: string) => {
     const targetServer = servers.find(s => s.id === serverId);
@@ -594,7 +587,7 @@ const McpManager: React.FC = () => {
                         <ConnectorIcon className="h-4 w-4 text-secondary" />
                       </div>
                       <span className="text-sm font-medium text-foreground truncate">
-                        {entry.name}
+                        {getRegistryEntryName(entry)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -620,13 +613,31 @@ const McpManager: React.FC = () => {
                     <span className={`shrink-0 px-1.5 py-0.5 rounded font-medium ${TRANSPORT_BADGE_COLORS[entry.transportType] || ''}`}>
                       {entry.transportType}
                     </span>
-                    <span className="shrink-0">·</span>
-                    <span className="truncate min-w-0">{getStdioCommandSummary(entry.command, entry.defaultArgs)}</span>
+                    {entry.transportType === 'stdio' && (
+                      <>
+                        <span className="shrink-0">·</span>
+                        <span className="truncate min-w-0">{getStdioCommandSummary(entry.command, entry.defaultArgs)}</span>
+                      </>
+                    )}
+                    {(entry.transportType === 'sse' || entry.transportType === 'http') && entry.url && (
+                      <>
+                        <span className="shrink-0">·</span>
+                        <span className="truncate min-w-0">{entry.url}</span>
+                      </>
+                    )}
                     {entry.requiredEnvKeys && entry.requiredEnvKeys.length > 0 && (
                       <>
                         <span className="shrink-0">·</span>
                         <span className="shrink-0 text-amber-500 dark:text-amber-400">
                           {entry.requiredEnvKeys.length} key{entry.requiredEnvKeys.length > 1 ? 's' : ''}
+                        </span>
+                      </>
+                    )}
+                    {entry.requiredHeaderKeys && entry.requiredHeaderKeys.length > 0 && (
+                      <>
+                        <span className="shrink-0">·</span>
+                        <span className="shrink-0 text-amber-500 dark:text-amber-400">
+                          {entry.requiredHeaderKeys.length} header{entry.requiredHeaderKeys.length > 1 ? 's' : ''}
                         </span>
                       </>
                     )}

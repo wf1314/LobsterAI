@@ -31,6 +31,8 @@ type SkillTab = 'installed' | 'marketplace';
 type ImportSourceType = 'github' | 'clawhub';
 type DirectImportSource = 'zip' | 'folder' | 'remote';
 
+const SHOW_SKILL_MARKETPLACE = false;
+
 const importSourceTypes: ImportSourceType[] = ['github', 'clawhub'];
 
 const importTabConfig: Record<ImportSourceType, {
@@ -131,6 +133,8 @@ const SkillsManager: React.FC<SkillsManagerProps> = ({ readOnly, onCreateByChat 
   }, [dispatch]);
 
   useEffect(() => {
+    if (!SHOW_SKILL_MARKETPLACE) return;
+
     let isActive = true;
     setIsLoadingMarketplace(true);
     skillService.fetchMarketplaceSkills().then((data) => {
@@ -354,8 +358,8 @@ const SkillsManager: React.FC<SkillsManagerProps> = ({ readOnly, onCreateByChat 
     const skillCreator = skills.find(s => s.id === 'skill-creator');
 
     if (!skillCreator) {
-      // Not installed → switch to marketplace tab and search
-      setActiveTab('marketplace');
+      // Not installed. Marketplace is hidden, so keep the user on installed skills.
+      setActiveTab('installed');
       setSkillSearchQuery('skill-creator');
       window.dispatchEvent(new CustomEvent('app:showToast', { detail: i18nService.t('skillCreatorNotInstalled') }));
       return;
@@ -709,20 +713,22 @@ const SkillsManager: React.FC<SkillsManagerProps> = ({ readOnly, onCreateByChat 
               activeTab === 'installed' ? 'bg-primary' : 'bg-transparent'
             }`} />
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('marketplace')}
-            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
-              activeTab === 'marketplace'
-                ? 'text-foreground'
-                : 'text-secondary hover:hover:text-foreground'
-            }`}
-          >
-            {i18nService.t('skillMarketplace')}
-            <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full transition-colors ${
-              activeTab === 'marketplace' ? 'bg-primary' : 'bg-transparent'
-            }`} />
-          </button>
+          {SHOW_SKILL_MARKETPLACE && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('marketplace')}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeTab === 'marketplace'
+                  ? 'text-foreground'
+                  : 'text-secondary hover:hover:text-foreground'
+              }`}
+            >
+              {i18nService.t('skillMarketplace')}
+              <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full transition-colors ${
+                activeTab === 'marketplace' ? 'bg-primary' : 'bg-transparent'
+              }`} />
+            </button>
+          )}
           {updatableSkills.length > 0 && (
             <div className="ml-auto pr-1 pb-1">
               <button
@@ -739,7 +745,7 @@ const SkillsManager: React.FC<SkillsManagerProps> = ({ readOnly, onCreateByChat 
         </div>
 
         {/* Tag filter pills (Marketplace only) */}
-        {activeTab === 'marketplace' && !isLoadingMarketplace && marketTags.length > 0 && (
+        {SHOW_SKILL_MARKETPLACE && activeTab === 'marketplace' && !isLoadingMarketplace && marketTags.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
@@ -871,7 +877,7 @@ const SkillsManager: React.FC<SkillsManagerProps> = ({ readOnly, onCreateByChat 
       </>
       )}
 
-      {activeTab === 'marketplace' && (
+      {SHOW_SKILL_MARKETPLACE && activeTab === 'marketplace' && (
         isLoadingMarketplace ? (
           <div className="text-center py-12 text-sm text-secondary">
             {i18nService.t('downloadingSkill')}
@@ -980,7 +986,7 @@ const SkillsManager: React.FC<SkillsManagerProps> = ({ readOnly, onCreateByChat 
       )}
       </div>
 
-      {selectedMarketplaceSkill && createPortal(
+      {SHOW_SKILL_MARKETPLACE && selectedMarketplaceSkill && createPortal(
         <Modal onClose={() => setSelectedMarketplaceSkill(null)} overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/60" className="w-full max-w-md mx-4 rounded-2xl bg-surface border border-border shadow-2xl p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3 min-w-0">

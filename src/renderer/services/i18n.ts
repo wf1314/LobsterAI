@@ -1596,6 +1596,7 @@ const translations: Record<LanguageType, Record<string, string>> = {
     mcpCategoryProductivity: '效率工具',
     mcpCategoryDesign: '设计',
     mcpCategoryDataApi: '数据 & API',
+    mcpCategoryChangyetongTools: '产业通工具',
     mcpDesc_tavily: '实时网页搜索、智能数据提取和网站爬取',
     mcpDesc_github: 'GitHub 平台集成：仓库、Issues、PR、Actions 管理',
     mcpDesc_gitlab: 'GitLab API 集成：项目管理、合并请求、流水线',
@@ -1609,6 +1610,8 @@ const translations: Record<LanguageType, Record<string, string>> = {
     mcpDesc_playwright: '高级浏览器自动化，支持 Chromium/Firefox/WebKit',
     mcpDesc_canva: 'Canva 设计平台：创建和管理设计、模板操作',
     mcpDesc_firecrawl: '网页抓取与数据提取：支持批处理、结构化提取和内容分析',
+    mcpDesc_industry_dimension_quick_company_recommend:
+      '当用户需要招商推荐、企业招引、企业信息数据召回时使用。',
     mcpDesc_fetch: '网页内容抓取和 HTML 转 Markdown，适合 LLM 消费',
 
     // 邮箱技能配置
@@ -4173,6 +4176,7 @@ const translations: Record<LanguageType, Record<string, string>> = {
     mcpCategoryProductivity: 'Productivity',
     mcpCategoryDesign: 'Design',
     mcpCategoryDataApi: 'Data & API',
+    mcpCategoryChangyetongTools: 'Changyetong Tools',
     mcpDesc_tavily: 'Real-time web search, intelligent data extraction and web crawling',
     mcpDesc_github: 'GitHub platform integration: repos, issues, PRs, Actions management',
     mcpDesc_gitlab: 'GitLab API integration: project management, merge requests, pipelines',
@@ -4188,6 +4192,8 @@ const translations: Record<LanguageType, Record<string, string>> = {
     mcpDesc_canva: 'Canva design platform: create and manage designs, template operations',
     mcpDesc_firecrawl:
       'Web scraping and data extraction: batch processing, structured extraction and content analysis',
+    mcpDesc_industry_dimension_quick_company_recommend:
+      'Use for investment recommendations, company attraction, and company information recall.',
     mcpDesc_fetch: 'Web content fetching and HTML-to-markdown conversion for LLM consumption',
 
     // Email Skill Config
