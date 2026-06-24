@@ -125,6 +125,7 @@ const App: React.FC = () => {
   const currentSessionId = useSelector(selectCurrentSessionId);
   const pendingPermission = useSelector(selectFirstPendingPermission);
   const authUser = useSelector((state: RootState) => state.auth.user);
+  const authIsLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
   const isWindows = window.electron.platform === 'win32';
 
   const waitWithTimeout = useCallback(
@@ -826,6 +827,9 @@ const App: React.FC = () => {
 
     // Enterprise mode: completely skip update detection
     if (enterpriseConfig?.disableUpdate) return;
+    // Temporarily disable unauthenticated update checks to avoid remote API calls before login.
+    // Remove this guard to restore the previous startup/heartbeat update checks for logged-out users.
+    if (!authIsLoggedIn) return;
 
     let cancelled = false;
     let lastCheckTime = 0;
@@ -860,7 +864,7 @@ const App: React.FC = () => {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isInitialized, runUpdateCheck, enterpriseConfig]);
+  }, [isInitialized, runUpdateCheck, enterpriseConfig, authIsLoggedIn]);
 
   // 根据场景选择使用哪个权限组件
   const permissionModal = useMemo(() => {

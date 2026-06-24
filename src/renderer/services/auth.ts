@@ -120,7 +120,8 @@ class AuthService {
     } catch {
       store.dispatch(setLoggedOut());
       store.dispatch(clearServerModels());
-      await this.loadPublicPricingCatalogModels();
+      // Temporarily disabled to avoid unauthenticated remote API calls.
+      // await this.loadPublicPricingCatalogModels();
     }
 
     // Listen for quota changes (e.g. after cowork session using server model)
@@ -216,7 +217,8 @@ class AuthService {
     if (options.clearOnFailure) {
       store.dispatch(setLoggedOut());
       store.dispatch(clearServerModels());
-      await this.loadPublicPricingCatalogModels();
+      // Temporarily disabled to avoid unauthenticated remote API calls.
+      // await this.loadPublicPricingCatalogModels();
     }
 
     const current = store.getState().auth;
@@ -234,7 +236,8 @@ class AuthService {
     await window.electron.auth.logout();
     store.dispatch(setLoggedOut());
     store.dispatch(clearServerModels());
-    await this.loadPublicPricingCatalogModels();
+    // Temporarily disabled to avoid unauthenticated remote API calls.
+    // await this.loadPublicPricingCatalogModels();
   }
 
   /**
@@ -316,23 +319,24 @@ class AuthService {
     }
   }
 
-  /**
-   * Load public pricing catalog models for unauthenticated read-only display.
-   */
-  private async loadPublicPricingCatalogModels() {
-    try {
-      const catalogResult = await window.electron.auth.getPricingCatalog();
-      if (!catalogResult.success || !catalogResult.textModels) {
-        return;
-      }
-      const serverModels = mapPricingCatalogToPublicServerModels({
-        textModels: catalogResult.textModels,
-      });
-      store.dispatch(setServerModels(serverModels));
-    } catch {
-      // ignore — public catalog is optional
-    }
-  }
+  // /**
+  //  * Load public pricing catalog models for unauthenticated read-only display.
+  //  */
+  // private async loadPublicPricingCatalogModels() {
+  //   try {
+  //     const catalogResult = await window.electron.auth.getPricingCatalog();
+  //     if (!catalogResult.success || !catalogResult.textModels) {
+  //       return;
+  //     }
+  //     const serverModels = mapPricingCatalogToPublicServerModels({
+  //       textModels: catalogResult.textModels,
+  //     });
+  //     store.dispatch(setServerModels(serverModels));
+  //   } catch {
+  //     // ignore — public catalog is optional
+  //   }
+  // }
+
 }
 
 export const authService = new AuthService();
