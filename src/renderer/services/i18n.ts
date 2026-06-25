@@ -124,7 +124,7 @@ const translations: Record<LanguageType, Record<string, string>> = {
     imageVisionHint:
       '当前模型未启用图片输入，图片将以文件路径形式发送。若该模型本身支持图片理解，可在模型配置中开启图片输入选项。',
     copied: '已复制',
-    copyrightHolder: '网易有道 版权所有',
+    copyrightHolder: 'IndustryAI 版权所有',
     noModelsAvailable: '暂无可用模型',
     addFirstModel: '添加第一个模型',
     testConnection: '测试连接',
@@ -1289,7 +1289,7 @@ const translations: Record<LanguageType, Record<string, string>> = {
     // Cowork 错误消息
     coworkErrorAuthInvalid: 'API 密钥无效或已过期，请在设置中检查并更新您的 API 密钥。',
     coworkErrorFreeQuotaExhausted:
-      '当前模型的免费额度已用完，升级套餐后可继续使用。\n\n[立即升级](https://lobsterai.youdao.com/portal)',
+      '当前模型的免费额度已用完。你可以在设置中配置自己的 API Key 后继续使用。',
     coworkErrorInsufficientBalance: 'API 余额不足，请充值后重试。',
     coworkErrorInputTooLong: '输入内容过长，超出模型上下文限制，请缩短对话内容后重试。',
     coworkErrorMessageTooLarge:
@@ -2407,9 +2407,9 @@ const translations: Record<LanguageType, Record<string, string>> = {
       '定时任务「{name}」存在异常数据，已自动修正显示，建议重新编辑该任务',
 
     // 隐私协议弹窗
-    privacyDialogTitle: '网易有道IndustryAI服务协议',
-    privacyDialogDesc: '在使用网易有道IndustryAI之前，请您仔细阅读{link}内容，并进行确认。',
-    privacyDialogLinkText: '网易有道IndustryAI服务协议',
+    privacyDialogTitle: 'IndustryAI 服务协议',
+    privacyDialogDesc: '在使用 IndustryAI 之前，请您仔细阅读{link}内容，并进行确认。',
+    privacyDialogLinkText: 'IndustryAI 服务协议',
     privacyDialogAccept: '我已阅读并同意',
     privacyDialogReject: '拒绝',
     githubCopilotAuth: 'GitHub 账号认证',
@@ -2625,7 +2625,7 @@ const translations: Record<LanguageType, Record<string, string>> = {
     imageVisionHint:
       'Image input is not enabled for the current model. Images will be sent as file paths. If the model supports vision, you can enable image input in the model configuration.',
     copied: 'Copied',
-    copyrightHolder: 'NetEase Youdao. All rights reserved.',
+    copyrightHolder: 'IndustryAI. All rights reserved.',
     noModelsAvailable: 'No models available',
     addFirstModel: 'Add First Model',
     testConnection: 'Test Connection',
@@ -3862,7 +3862,7 @@ const translations: Record<LanguageType, Record<string, string>> = {
     coworkErrorAuthInvalid:
       'Invalid or expired API key. Please check and update your API key in settings.',
     coworkErrorFreeQuotaExhausted:
-      'The current model\'s free quota has been used up. Upgrade your plan to continue.\n\n[Upgrade now](https://lobsterai.youdao.com/portal)',
+      'The current model\'s free quota has been used up. Configure your own API key in Settings to continue.',
     coworkErrorInsufficientBalance: 'Insufficient API balance. Please top up and try again.',
     coworkErrorInputTooLong:
       'Input too long, exceeding model context limit. Please shorten the conversation and try again.',
@@ -5034,10 +5034,10 @@ const translations: Record<LanguageType, Record<string, string>> = {
       'Scheduled task "{name}" has abnormal data. Display has been auto-corrected. Consider re-editing this task',
 
     // Privacy dialog
-    privacyDialogTitle: 'NetEase Youdao IndustryAI Terms of Service',
+    privacyDialogTitle: 'IndustryAI Terms of Service',
     privacyDialogDesc:
-      'Before using NetEase Youdao IndustryAI, please carefully read the {link} and confirm.',
-    privacyDialogLinkText: 'NetEase Youdao IndustryAI Terms of Service',
+      'Before using IndustryAI, please carefully read the {link} and confirm.',
+    privacyDialogLinkText: 'IndustryAI Terms of Service',
     privacyDialogAccept: 'I have read and agree',
     privacyDialogReject: 'Decline',
     githubCopilotAuth: 'GitHub Account Authentication',
