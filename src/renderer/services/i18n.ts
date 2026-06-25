@@ -1612,6 +1612,11 @@ const translations: Record<LanguageType, Record<string, string>> = {
     mcpDesc_firecrawl: '网页抓取与数据提取：支持批处理、结构化提取和内容分析',
     mcpDesc_industry_dimension_quick_company_recommend:
       '当用户需要招商推荐、企业招引、企业信息数据召回时使用。',
+    mcpDesc_attract_mcp: '面向靶向招商场景，提供目标企业筛选、匹配和招引线索分析。',
+    mcpDesc_migration_warning_mcp: '识别企业迁移风险信号，辅助研判潜在外迁、流失和预警处置场景。',
+    mcpDesc_industry_investment_mcp: '围绕产业投资场景，提供产业链、投资机会和重点企业分析支持。',
+    mcpDesc_vocational_counsel_mcp: '面向就业指导场景，提供岗位方向、职业建议和就业匹配分析。',
+    mcpDesc_dynamic_monitor_mcp: '持续跟踪企业动态，辅助监测经营变化、风险事件和重要新闻线索。',
     mcpDesc_fetch: '网页内容抓取和 HTML 转 Markdown，适合 LLM 消费',
 
     // 邮箱技能配置
@@ -4194,6 +4199,16 @@ const translations: Record<LanguageType, Record<string, string>> = {
       'Web scraping and data extraction: batch processing, structured extraction and content analysis',
     mcpDesc_industry_dimension_quick_company_recommend:
       'Use for investment recommendations, company attraction, and company information recall.',
+    mcpDesc_attract_mcp:
+      'Supports targeted investment promotion with company screening, matching, and attraction lead analysis.',
+    mcpDesc_migration_warning_mcp:
+      'Identifies company migration risk signals to support potential relocation, churn, and warning workflows.',
+    mcpDesc_industry_investment_mcp:
+      'Supports industry investment analysis across supply chains, opportunities, and key companies.',
+    mcpDesc_vocational_counsel_mcp:
+      'Supports vocational counseling with career direction, job guidance, and employment matching analysis.',
+    mcpDesc_dynamic_monitor_mcp:
+      'Tracks company updates to monitor business changes, risk events, and important news signals.',
     mcpDesc_fetch: 'Web content fetching and HTML-to-markdown conversion for LLM consumption',
 
     // Email Skill Config

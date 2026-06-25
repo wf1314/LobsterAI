@@ -30,6 +30,7 @@ import {
   uninstallComputerUseRuntime,
 } from '../../computerUse/computerUseRuntime';
 import { cpRecursiveSync } from '../../fsCompat';
+import { buildPresetMarketplaceKits } from '../../kits/presetKits';
 import { OpenClawConfigImpact } from '../../libs/openclawConfigImpact';
 import type { SkillManager } from '../../skillManager';
 import type { SqliteStore } from '../../sqliteStore';
@@ -84,11 +85,24 @@ const normalizeCapabilityList = (value: unknown): unknown[] => (
   Array.isArray(value) ? value : []
 );
 
-function appendBuiltInKitsToStoreResponse(data: string): string {
-  if (!isComputerUseKitSupportedPlatform()) {
-    return data;
-  }
+function buildLocalMarketplaceKits(): Record<string, unknown>[] {
+  return [
+    ...buildPresetMarketplaceKits(),
+    ...(isComputerUseKitSupportedPlatform() ? [buildComputerUseMarketplaceKit()] : []),
+  ];
+}
 
+function buildLocalKitsStoreResponse(): string {
+  return JSON.stringify({
+    data: {
+      value: {
+        kits: buildLocalMarketplaceKits(),
+      },
+    },
+  });
+}
+
+function _appendLocalKitsToStoreResponse(data: string): string {
   const parsed = JSON.parse(data) as Record<string, unknown>;
   const valueContainer = (parsed as { data?: { value?: unknown } }).data;
   const rawValue = valueContainer?.value;
@@ -100,17 +114,21 @@ function appendBuiltInKitsToStoreResponse(data: string): string {
     ? JSON.parse(rawValue) as Record<string, unknown>
     : rawValue as Record<string, unknown>;
   const kits = Array.isArray(value.kits) ? value.kits : [];
+  const localKits = buildLocalMarketplaceKits();
+  const localKitIds = new Set(localKits
+    .map((kit) => (typeof kit.id === 'string' ? kit.id : ''))
+    .filter(Boolean));
   const withoutDuplicate = kits.filter((kit) => (
     !kit
     || typeof kit !== 'object'
-    || (kit as Record<string, unknown>).id !== ComputerUseKitId.BuiltIn
+    || !localKitIds.has(String((kit as Record<string, unknown>).id ?? ''))
   ));
 
   const nextValue = {
     ...value,
     kits: [
       ...withoutDuplicate,
-      buildComputerUseMarketplaceKit(),
+      ...localKits,
     ],
   };
   valueContainer.value = typeof rawValue === 'string' ? JSON.stringify(nextValue) : nextValue;
@@ -235,11 +253,14 @@ function notifySkillsChanged(): void {
 }
 
 export function registerKitHandlers(deps: KitHandlerDeps): void {
-  const { getStore, getKitStoreUrl, getSkillManager, syncOpenClawConfig } = deps;
+  const { getStore, getSkillManager, syncOpenClawConfig } = deps;
 
-  // Fetch kit store catalog from overmind
+  // Fetch kit store catalog. Remote marketplace fetching is temporarily disabled;
+  // keep the original Overmind request path below so it can be restored later.
   ipcMain.handle('kits:fetchStore', async () => {
-    const url = getKitStoreUrl();
+    return { success: true, data: buildLocalKitsStoreResponse() };
+    /*
+    const url = deps.getKitStoreUrl();
     console.log(`[KitStore] fetching from: ${url}`);
     try {
       const https = await import('https');
@@ -259,11 +280,12 @@ export function registerKitHandlers(deps: KitHandlerDeps): void {
         req.on('error', reject);
         req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
       });
-      return { success: true, data: appendBuiltInKitsToStoreResponse(data) };
+      return { success: true, data: _appendLocalKitsToStoreResponse(data) };
     } catch (error) {
       console.error('[KitStore] fetch failed:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch kit store' };
+      return { success: true, data: buildLocalKitsStoreResponse() };
     }
+    */
   });
 
   // List installed kits
