@@ -372,6 +372,25 @@ async function downloadArchive(url, destination) {
   }
 }
 
+async function extractZipArchive(archivePath, outputDir) {
+  if (process.platform !== 'win32') {
+    const result = spawnSync('unzip', ['-q', archivePath, '-d', outputDir], {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+    if (result.error) {
+      throw new Error(`Failed to run unzip: ${result.error.message}`);
+    }
+    if (result.status !== 0) {
+      const detail = (result.stderr || result.stdout || '').trim();
+      throw new Error(`unzip failed for ${archivePath}${detail ? `\n${detail}` : ''}`);
+    }
+    return;
+  }
+
+  await extractZip(archivePath, { dir: outputDir });
+}
+
 async function resolveArchive(required) {
   const envArchive = resolveInputPath(process.env.LOBSTERAI_PORTABLE_PYTHON_ARCHIVE);
   if (envArchive) {
@@ -547,7 +566,7 @@ async function bootstrapRuntimeOnWindows() {
 async function extractArchiveToRuntime(archivePath) {
   const tempRoot = fs.mkdtempSync(path.join(PROJECT_ROOT, 'tmp-python-runtime-'));
   try {
-    await extractZip(archivePath, { dir: tempRoot });
+    await extractZipArchive(archivePath, tempRoot);
     const runtimeRoot = findRuntimeRoot(tempRoot);
     if (!runtimeRoot) {
       throw new Error('Could not locate python runtime root after extraction.');

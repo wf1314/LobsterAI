@@ -66,6 +66,7 @@ function mergeExtraResources(platformName) {
 }
 
 const keyfrom = readBuildKeyfrom();
+const artifactProductName = config.productName || 'IndustryAI';
 
 for (const platformName of ['mac', 'win', 'linux']) {
   mergeExtraResources(platformName);
@@ -75,12 +76,12 @@ delete config.extraResources;
 
 config.dmg = {
   ...(config.dmg || {}),
-  artifactName: `LobsterAI-darwin-\${arch}-\${version}-${keyfrom}.\${ext}`,
+  artifactName: `${artifactProductName}-darwin-\${arch}-\${version}-${keyfrom}.\${ext}`,
 };
 
 config.nsis = {
   ...(config.nsis || {}),
-  artifactName: `LobsterAI-Setup-\${arch}-\${version}-${keyfrom}.\${ext}`,
+  artifactName: `${artifactProductName}-Setup-\${arch}-\${version}-${keyfrom}.\${ext}`,
 };
 
 console.log(`[Keyfrom] configured artifact keyfrom as ${keyfrom}`);
