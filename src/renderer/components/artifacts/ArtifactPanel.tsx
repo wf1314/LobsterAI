@@ -1,5 +1,6 @@
 import { ArtifactBrowserPartition } from '@shared/artifactPreview/constants';
 import type { CoworkSelectedTextSnippet } from '@shared/cowork/selectedText';
+import { ENABLE_HTML_SHARE } from '@shared/featureFlags';
 import {
   HtmlShareAccessMode,
   type HtmlShareAccessMode as HtmlShareAccessModeValue,
@@ -600,7 +601,8 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
     ? 'p-1 rounded bg-primary/10 text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50'
     : 'p-1 rounded text-secondary transition-colors hover:bg-surface hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50';
   const canShareHtmlArtifact = Boolean(
-    htmlShareArtifact &&
+    ENABLE_HTML_SHARE &&
+      htmlShareArtifact &&
       selectedShareSourceType &&
       selectedShareLookupKey &&
       hasShareableArtifactSource(htmlShareArtifact, selectedShareSourceType),
@@ -803,6 +805,7 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
 
   useEffect(() => {
     if (
+      !ENABLE_HTML_SHARE ||
       !htmlShareArtifact ||
       !selectedShareSourceType ||
       !selectedShareLookupKey ||
@@ -2162,6 +2165,7 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
             shareButtonTitle={htmlShareButtonTitle}
             hasExistingShare={Boolean(selectedHtmlShare)}
             isSharing={isHtmlSharing}
+            showShareButton={ENABLE_HTML_SHARE}
             onShare={handleShareHtmlArtifact}
             autoRefreshFilePath={browserHtmlAutoRefreshFilePath}
             localHtmlPreviewUrl={browserHtmlPreviewUrl}
@@ -2998,6 +3002,7 @@ interface BrowserTabContentProps {
   shareButtonTitle?: string;
   hasExistingShare?: boolean;
   isSharing?: boolean;
+  showShareButton?: boolean;
   onShare?: () => void | Promise<void>;
   autoRefreshFilePath?: string;
   localHtmlPreviewUrl?: string;
@@ -3015,6 +3020,7 @@ const BrowserTabContent: React.FC<BrowserTabContentProps> = ({
   shareButtonTitle = t('htmlShare'),
   hasExistingShare = false,
   isSharing = false,
+  showShareButton = true,
   onShare,
   autoRefreshFilePath,
   localHtmlPreviewUrl,
@@ -3803,29 +3809,31 @@ const BrowserTabContent: React.FC<BrowserTabContentProps> = ({
             {t('artifactBrowserAnnotating')}
           </button>
         )}
-        <div
-          ref={shareButtonRef}
-          className="flex h-7 w-7 shrink-0 items-center justify-center"
-          onMouseEnter={() => setHoveredToolbarAction(BrowserToolbarAction.Share)}
-          onMouseLeave={() => setHoveredToolbarAction(null)}
-        >
-          <button
-            type="button"
-            onClick={() => void onShare?.()}
-            disabled={!canShare || isSharing}
-            className={`inline-flex h-7 w-7 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
-              hasExistingShare
-                ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                : canShare
-                ? 'text-secondary hover:bg-surface hover:text-foreground'
-                : 'text-secondary'
-            }`}
-            aria-label={shareButtonTitle}
-            title={shareButtonTitle}
+        {showShareButton && (
+          <div
+            ref={shareButtonRef}
+            className="flex h-7 w-7 shrink-0 items-center justify-center"
+            onMouseEnter={() => setHoveredToolbarAction(BrowserToolbarAction.Share)}
+            onMouseLeave={() => setHoveredToolbarAction(null)}
           >
-            <ShareIcon />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => void onShare?.()}
+              disabled={!canShare || isSharing}
+              className={`inline-flex h-7 w-7 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
+                hasExistingShare
+                  ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                  : canShare
+                  ? 'text-secondary hover:bg-surface hover:text-foreground'
+                  : 'text-secondary'
+              }`}
+              aria-label={shareButtonTitle}
+              title={shareButtonTitle}
+            >
+              <ShareIcon />
+            </button>
+          </div>
+        )}
         <button
           ref={browserMenuButtonRef}
           type="button"

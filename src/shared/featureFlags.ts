@@ -5,3 +5,6 @@
 
 /** Whether to enable OpenClaw skill sync (auto-detect + manual sync entry) */
 export const ENABLE_OPENCLAW_SKILL_SYNC = false;
+
+/** Whether to show HTML artifact sharing entry points */
+export const ENABLE_HTML_SHARE = false;
