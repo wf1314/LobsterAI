@@ -1607,6 +1607,7 @@ export class CoworkStore {
       created_at: number;
       sequence: number | null;
       message_offset: number;
+      is_visible: number;
     }>(
       `
       SELECT id, type, preview_content, content_len, created_at, sequence, message_offset
@@ -1620,12 +1621,15 @@ export class CoworkStore {
           sequence,
           ROW_NUMBER() OVER (
             ORDER BY COALESCE(sequence, created_at) ASC, created_at ASC, ROWID ASC
-          ) - 1 as message_offset
+          ) - 1 as message_offset,
+          CASE
+            WHEN type IN ('user', 'assistant') AND TRIM(content) <> '' THEN 1
+            ELSE 0
+          END as is_visible
         FROM cowork_messages
         WHERE session_id = ?
       )
-      WHERE type IN ('user', 'assistant')
-        AND TRIM(content) <> ''
+      WHERE is_visible = 1
       ORDER BY message_offset ASC
     `,
       [sessionId],

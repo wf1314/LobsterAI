@@ -167,6 +167,7 @@ type RailItem = {
   contentLen: number;
   isUser: boolean;
   isLoaded: boolean;
+  isPlaceholder?: boolean;
 };
 
 type RailNavigationDecision = {
@@ -281,6 +282,42 @@ const buildRailItemsFromIndex = (
   isUser: item.type === 'user',
   isLoaded: loadedTurnByMessageId.has(item.messageId),
 }));
+
+const buildPlaceholderRailItems = (
+  totalMessages: number,
+  messagesOffset: number,
+  localItems: RailItem[],
+): RailItem[] => {
+  const count = Math.max(0, Math.floor(totalMessages));
+  if (count <= localItems.length) return localItems;
+
+  const localByAbsoluteIndex = new Map<number, RailItem>();
+  localItems.forEach((item, index) => {
+    localByAbsoluteIndex.set(messagesOffset + index, item);
+  });
+
+  return Array.from({ length: count }, (_, index) => {
+    const localItem = localByAbsoluteIndex.get(index);
+    if (localItem) {
+      return {
+        ...localItem,
+        absoluteIndex: index,
+      };
+    }
+
+    return {
+      key: `placeholder-${index}`,
+      messageId: null,
+      turnIndex: -1,
+      absoluteIndex: index,
+      label: `Message ${index + 1}`,
+      contentLen: 1,
+      isUser: false,
+      isLoaded: false,
+      isPlaceholder: true,
+    };
+  });
+};
 
 const buildTurnToRailRange = (railItems: RailItem[]): { first: number; last: number }[] => {
   const rangeMap: { first: number; last: number }[] = [];
@@ -1154,7 +1191,11 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
   const [isScrollable, setIsScrollable] = useState(false);
   const [hoveredRailIndex, setHoveredRailIndex] = useState<number | null>(null);
   const [isRailHovered, setIsRailHovered] = useState(false);
-  const [railTooltip, setRailTooltip] = useState<{ label: string; top: number; right: number; isUser: boolean } | null>(null);
+  const [railTooltip, setRailTooltip] = useState<{
+    railIndex: number;
+    top: number;
+    right: number;
+  } | null>(null);
 
   // Export states
   const [isExportingImage, setIsExportingImage] = useState(false);
@@ -2733,6 +2774,28 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
     });
   }, []);
 
+  const handleRailWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    const container = railLinesRef.current;
+    if (!container) return;
+
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    if (maxScrollTop <= 1) return;
+
+    const deltaMultiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? WHEEL_DELTA_LINE_HEIGHT
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? container.clientHeight
+        : 1;
+    const nextScrollTop = Math.max(
+      0,
+      Math.min(maxScrollTop, container.scrollTop + event.deltaY * deltaMultiplier),
+    );
+    if (nextScrollTop === container.scrollTop) return;
+
+    event.stopPropagation();
+    container.scrollTop = nextScrollTop;
+  }, []);
+
   // Auto-load older messages if content doesn't fill the container (no scrollbar = onScroll never fires)
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -2972,13 +3035,29 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
   const railItems = useMemo(
     () => (messageRailIndex.length > 0
       ? buildRailItemsFromIndex(messageRailIndex, loadedRailTurnMap)
-      : localRailItems),
-    [loadedRailTurnMap, localRailItems, messageRailIndex],
+      : buildPlaceholderRailItems(
+        currentSession?.totalMessages ?? localRailItems.length,
+        currentSession?.messagesOffset ?? 0,
+        localRailItems,
+      )),
+    [
+      currentSession?.messagesOffset,
+      currentSession?.totalMessages,
+      loadedRailTurnMap,
+      localRailItems,
+      messageRailIndex,
+    ],
   );
   const railMaxContentLength = useMemo(
     () => railItems.reduce((acc, item) => Math.max(acc, item.contentLen), 1),
     [railItems],
   );
+  const railTooltipItem = railTooltip ? railItems[railTooltip.railIndex] : undefined;
+  const railTooltipLabel = railTooltipItem
+    ? railTooltipItem.isPlaceholder
+      ? i18nService.t('coworkRailUnloadedMessageHint')
+      : railTooltipItem.label
+    : '';
 
   // Cache turn-level DOM elements (data-turn-index, always in DOM even for lazy turns)
   useEffect(() => {
@@ -3600,7 +3679,8 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
         {shouldShowTurnNavigationRail && (
           <div
             className="absolute right-[18px] top-1/2 -translate-y-1/2 w-5 flex flex-col items-end z-10"
-            style={{ maxHeight: 'calc(100% - 40px)' }}
+            style={{ height: 'calc(100% - 40px)', maxHeight: 'calc(100% - 40px)' }}
+            onWheel={handleRailWheel}
             onMouseEnter={() => setIsRailHovered(true)}
             onMouseLeave={() => {
               setIsRailHovered(false);
@@ -3632,7 +3712,8 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
             {/* Message Lines */}
             <div
               ref={railLinesRef}
-              className="overflow-y-auto min-h-0 flex-1"
+              onWheel={handleRailWheel}
+              className="overflow-y-auto overscroll-contain min-h-0 flex-1"
               style={{ scrollbarWidth: 'none' }}
             >
               {railItems.map((msg, idx) => {
@@ -3652,10 +3733,9 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
                       const rect = e.currentTarget.getBoundingClientRect();
                       const top = Math.max(8, Math.min(rect.top + rect.height / 2, window.innerHeight - 8));
                       setRailTooltip({
-                        label: msg.label,
+                        railIndex: idx,
                         top,
                         right: window.innerWidth - rect.left + 8,
-                        isUser: msg.isUser,
                       });
                     }}
                     onMouseLeave={() => setRailTooltip(null)}
@@ -3698,12 +3778,12 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
           </div>
         )}
 
-        {railTooltip && createPortal(
+        {railTooltip && railTooltipItem && createPortal(
           <div
             className={`fixed z-[100] px-3.5 py-2 text-[13px] leading-snug pointer-events-none overflow-hidden
               max-w-[240px] shadow-[0_2px_12px_rgba(0,0,0,0.12)]
               border dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)]
-              ${railTooltip.isUser
+              ${railTooltipItem.isUser
                 ? 'rounded-[12px_12px_4px_12px] bg-white border-neutral-200/80 dark:bg-neutral-800 dark:border-neutral-700'
                 : 'rounded-xl bg-neutral-50 border-neutral-200/80 dark:bg-neutral-800 dark:border-neutral-700'
               }`}
@@ -3713,7 +3793,11 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
               transform: 'translateY(-50%)',
             }}
           >
-            {!railTooltip.isUser && (
+            {railTooltipItem.isPlaceholder ? (
+              <div className="text-[12px] font-medium mb-0.5 text-neutral-800 dark:text-neutral-200">
+                {i18nService.t('coworkRailUnloadedMessageTitle')}
+              </div>
+            ) : !railTooltipItem.isUser && (
               <div className="text-[12px] font-medium mb-0.5 text-neutral-800 dark:text-neutral-200">
                 LobsterAI:
               </div>
@@ -3728,7 +3812,7 @@ const CoworkSessionDetail: React.FC<CoworkSessionDetailProps> = ({
                 wordBreak: 'break-all',
               }}
             >
-              {railTooltip.label}
+              {railTooltipLabel}
             </div>
           </div>,
           document.body
